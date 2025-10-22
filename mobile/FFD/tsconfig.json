@@ -1,0 +1,20 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    /* Bật kiểm tra chặt chẽ */
+    "strict": true,
+
+    /* Dùng React 17+ JSX transform */
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+
+    /* Giúp build nhanh hơn, bỏ qua check lib */
+    "skipLibCheck": true,
+
+    /* Giúp VSCode gợi ý tốt hơn */
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true
+  }
+}
