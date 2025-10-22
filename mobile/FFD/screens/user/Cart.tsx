@@ -18,8 +18,9 @@ import { useMessageBox } from "../../context/MessageBoxContext";
 const CartScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { user, guestMode } = useAuth();
-  const { cart, removeFromCart, setAddress, address, clearCart, setCart, increaseQtyInCart, decreaseQtyInCart } = useContext(CartContext)!;
+  const { cart, removeFromCart,handleRemoveItem, setAddress, address, clearCart, setCart, increaseQtyInCart, decreaseQtyInCart } = useContext(CartContext)!;
   const { show, confirm} = useMessageBox();
+
 
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const displayAddress =
@@ -52,12 +53,6 @@ const CartScreen: React.FC = () => {
     );
   };
 
-  const handleRemoveItem = async (index: number) => {
-  const ok = await confirm("Bạn có muốn xóa món này khỏi giỏ hàng?");
-  if (!ok) return;
-  removeFromCart(index);
-  show("Đã xóa món khỏi giỏ hàng!", "success");
-};
 
 
   // ✅ Khi người dùng nhấn "Thanh toán"
@@ -87,12 +82,14 @@ return (
           <Text style={styles.emptyText}>Giỏ hàng trống.</Text>
         ) : (
           cart.map((item, index) => {
-            const itemPrice =
-              (item.price || 0) + 
-              (item.selectedSize?.price || 0) +
-              (item.selectedBase?.price || 0) +
-              (item.selectedTopping?.price || 0) +
-              (item.selectedAddOn?.price || 0);
+            // ✅ Tính giá đơn vị đúng
+          const itemPrice =
+            (item.selectedSize?.price ??
+              item.price ?? // nếu món không có size thì dùng price gốc
+              0) +
+            (item.selectedBase?.price || 0) +
+            (item.selectedTopping?.price || 0) +
+            (item.selectedAddOn?.price || 0);
 
             return (
               <View key={index} style={styles.cartCard}>
@@ -137,6 +134,7 @@ return (
                     >
                       <Text style={styles.qtySymbol}>−</Text>
                     </TouchableOpacity>
+              
 
                     <Text style={styles.qtyText}>{item.quantity}</Text>
 

@@ -7,15 +7,15 @@ import { MessageBoxProvider } from "./context/MessageBoxContext";
 
 const App: React.FC = () => {
   return (
+        <MessageBoxProvider>
     <AuthProvider>
       <CartProvider>
-        <MessageBoxProvider>
           <NavigationContainer>
             <AppNavigator />
           </NavigationContainer>
-        </MessageBoxProvider>
       </CartProvider>
     </AuthProvider>
+        </MessageBoxProvider>
   );
 };
 
