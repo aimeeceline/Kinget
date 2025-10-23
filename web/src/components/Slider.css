@@ -1,0 +1,80 @@
+/* --------Slider----------*/
+.slider {
+    display: block;
+  width: 700px;
+  height: 400px;
+  position: relative;
+  overflow: hidden;           /* giữ lại để ảnh/nút bị cắt theo bo */
+  margin-block-end: 4%;
+  background: #000;
+  border-radius: 20px;        /* <— bo tròn */
+margin: 10px auto;
+  box-shadow: 0 12px 30px rgba(0,0,0,.15);
+}
+
+
+.lista {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  display: flex;
+  width: max-content;
+  transition: left 1s;          /* chuyển động bằng left y như code cũ */
+}
+
+.item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bat {
+  position: absolute;
+  top: 45%;
+  left: 5%;
+  width: 90%;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.bat button {
+  pointer-events: auto;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: #fff5;
+  color: #fff;
+  border: none;
+  font-family: monospace;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* dots */
+.dots {
+  position: absolute;
+  bottom: 10px;
+  color: #fff;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+}
+.dots li {
+  list-style: none;
+  width: 10px;
+  height: 10px;
+  background-color: #fff;
+  margin: 20px;
+  border-radius: 20px;
+  transition: 1s;
+  cursor: pointer;
+}
+.dots li.active {
+  width: 30px;
+  background-color: rebeccapurple;
+}

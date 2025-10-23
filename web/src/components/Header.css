@@ -1,0 +1,396 @@
+.ff-container {
+  width: min(var(--page-max), 100% - 2*var(--page-pad));
+  margin-inline: auto;
+  padding-inline: var(--page-pad);
+  background: #f29b18;
+}
+.ff-nav {
+  display: flex;
+  justify-content: center;
+  gap: 150px;
+}
+.ff-header {
+  position: sticky;
+  top: 0;
+  z-index: 1200;
+  overflow: visible;
+}
+.ff-header.scrolled {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+  background: #f29b18;
+  transition: box-shadow .25s ease, background .25s ease;
+}
+
+.ff-logo img {
+  height: 80px;
+  width: auto;
+}
+
+.ff-menu{
+  list-style: none;
+  margin: 0 !important;          /* xóa margin mặc định của <ul> */
+  padding: 0 !important;         /* xóa padding-left mặc định của <ul> */
+  display: flex;
+  gap: 16px;                      /* khoảng cách giữa các mục */
+  align-items: center;            /* canh giữa theo chiều dọc */
+}
+
+.ff-menu a{
+  text-decoration: none;   /* bỏ gạch chân cho link */
+  font-weight: 600;
+  color: #000;
+  font-size: 20px;
+  border-radius: 8px;
+  display: inline-flex;    /* canh giữa theo chiều dọc */
+  align-items: center;
+  line-height: 1.2;        /* tự nhiên hơn 1 */
+  padding: 6px 8px;        /* đệm vừa đủ */
+}
+
+.ff-menu a:hover,
+.ff-menu a.active{
+  color: #f0bb57;
+}
+
+.ff-has-dd {
+  position: relative;
+}
+
+.ff-dropdown,
+.ff-user-dd {
+  position: absolute;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px #000;
+  padding: 10px;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(6px);
+  transition: opacity .15s ease, transform .15s ease;
+}
+
+.ff-dropdown::before,
+.ff-user-dd::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 10px;
+  top: -10px;
+}
+
+.ff-dropdown {
+  min-width: 670px;
+}
+
+.ff-dropdown a{
+  font-size: 15px;
+  border-radius: 8px;
+}
+
+.ff-dropdown a:hover {
+  color: rgb(255, 157, 0);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ff-has-dd:hover .ff-dropdown {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+.ff-has-dd:focus-within .ff-dropdown,
+.ff-dropdown.open {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.ff-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.ff-search {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  width: 280px;
+  padding: 0 6px 0 12px;
+  background: #fff;
+  border-radius: 999px;
+  box-shadow: 0 5px 12px rgba(0, 0, 0, .12);
+}
+
+.ff-search input {
+  flex: 1;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 15px;
+}
+
+.ff-search button {
+  width: 36px;
+  height: 32px;
+  border-radius: 16px;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.ff-user {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ff-user-link {
+  color: #000;
+}
+
+.ff-user-link:hover {
+  color: rgb(243, 241, 237);
+}
+
+.ff-user-dd {
+  top: 100%;
+  left: 50%;
+  min-width: 120px;
+}
+
+.ff-user-dd a,
+.ff-user-dd button{
+  display: flex;                 /* icon + text canh giữa dọc */
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;              /* vùng bấm thoải mái */
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: transparent;
+  color: #222;
+  font: inherit;                 /* button dùng cùng font với site */
+  line-height: 1.2;
+  text-decoration: none;         /* bỏ gạch chân cho <a> */
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+
+.ff-user-dd a:hover,
+.ff-user-dd button:hover{
+  background: #f6f6f6;
+}
+
+.ff-user-dd a:active,
+.ff-user-dd button:active{
+  background: #eee;
+}
+
+.ff-user-dd a:focus-visible,
+.ff-user-dd button:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0,0,0,.15);  /* focus ring */
+}
+
+.ff-user-dd button[disabled]{
+  opacity: .5;
+  pointer-events: none;
+}
+.ff-user-name {
+  font-weight: 700;
+  text-align: center;
+  padding: 6px;
+}
+
+/* Hover mở trên desktop có chuột */
+@media (hover: hover) and (pointer: fine) {
+  .ff-user:hover .ff-user-dd {
+    display: block;
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
+  }
+}
+
+
+
+/* ===== Cart ===== */
+
+.ff-cart { position: relative; font-size: 27px; color: #000; }
+.ff-cart:hover { color: #ffffff; } 
+.ff-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  background: #ff3b30;
+  color: #fff;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 12px;
+  display: grid;
+  place-items: center;
+}
+
+/* ===== Mobile drawer ===== */
+.ff-drawer {
+  position: fixed;
+  inset: 0 30% 0 0;
+  background: #fff;
+  transform: translateX(-100%);
+  transition: transform .25s ease;
+  z-index: 1300;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 6px 0 24px rgba(0, 0, 0, .12);
+}
+
+.ff-drawer.open {
+  transform: translateX(0);
+}
+
+.ff-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  font-weight: 800;
+}
+
+.ff-drawer-body {
+  display: grid;
+  gap: 10px;
+  padding: 8px 16px 20px;
+}
+
+.ff-drawer-body a {
+  color: #000;
+  font-weight: 600;
+}
+
+.ff-drawer-title {
+  margin-top: 6px;
+  font-weight: 800;
+  color: #d80;
+}
+
+.ff-logout {
+  text-align: left;
+  padding: 8px;
+  border-radius: 8px;
+  border: 0;
+  background: #fff0f0;
+  color: #c00;
+}
+
+.ff-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .35);
+  z-index: 1250;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1024px) {
+  .ff-container {
+    padding: 10px 4%;
+  }
+
+  .ff-menu {
+    display: none;
+  }
+
+  .ff-burger {
+    display: inline-flex;
+  }
+
+  .ff-search {
+    width: 220px;
+  }
+}
+
+@media (max-width: 600px) {
+  .ff-search {
+    display: none;
+  }
+
+  .ff-drawer {
+    inset: 0 0 0 0;
+  }
+}
+
+/* ===== Focus (ẩn ô đen khi click, giữ outline cho Tab) ===== */
+.ff-menu a:focus,
+.ff-search button:focus,
+.ff-cart:focus,
+.ff-user-dd a:focus,
+.ff-user-dd button:focus {
+  outline: 0;
+  box-shadow: none;
+}
+
+.ff-search button:focus-visible,
+.ff-cart:focus-visible,
+.ff-user-dd a:focus-visible,
+.ff-user-dd button:focus-visible {
+  outline: 2px solid #d80;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.ff-header,
+.ff-header * {
+  -webkit-tap-highlight-color: transparent;
+}
+/* Vị trí dropdown dưới menu chính */
+.has-dropdown { position: relative; }
+.ff-dropdown{
+  position: absolute;
+  left: 0; right: 0; top: calc(100% + 8px);
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.08);
+  display: none;
+  z-index: 50;
+}
+.has-dropdown:hover .ff-dropdown{ display:block; }
+
+/* Lưới danh mục */
+.ff-cat-grid{
+  display: grid;
+  grid-template-columns: repeat(8, minmax(110px,1fr));
+  gap: 12px 18px;
+  border-radius: 12px;
+  align-items: start;
+}
+.ff-cat{
+    box-shadow: 0 4px 14px #000000;
+  display:flex; flex-direction:column; align-items:center;
+  text-decoration:none; color:#111;
+  font-weight:800; text-transform:uppercase;
+  font-size:13px; letter-spacing:.3px;
+}
+
+.ff-cat img{
+  width:86px; height:86px; object-fit:contain;
+  background:#fff; border-radius:10px; padding:6px;
+  box-shadow:0 6px 12px rgba(0,0,0,.06);
+  transition:transform .15s ease;
+}
+
+.ff-cat:hover img{ transform:translateY(-2px) scale(1.03); }
+/* Chữ dưới ảnh */
+.ff-cat span{
+  display: block;          /* biến thành block */
+  width: 100%;             /* chiếm hết bề ngang của item */
+  text-align: center;      /* lúc này mới canh giữa đúng */
+  margin-top: 10px;
+  text-transform: uppercase;
+}

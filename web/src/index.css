@@ -1,0 +1,34 @@
+/* ===== Reset nhẹ và biến dùng chung ===== */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { scrollbar-gutter: stable both-edges; }
+
+:root{
+  --page-max: 1400px;
+  --page-pad: 25px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 6px 16px rgba(0,0,0,.08);
+  --shadow-md: 0 12px 30px rgba(0,0,0,.12);
+  --brand: #f29b18;
+  --text: #222;
+  --muted: #666;
+  --bg: #fff;
+}
+
+/* Vite mặc định hay căn giữa body bằng flex -> bỏ để tránh "giật" */
+html, body { height: auto; }
+body{
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.5;
+}
+
+img{ max-width: 100%; display:block; }
+
+/* Headings khoảng cách mặc định dễ đọc */
+h1,h2,h3{ margin: 24px 0 16px; line-height: 1.25; }
+p{ margin: 0 0 12px; }

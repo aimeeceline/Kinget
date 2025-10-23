@@ -1,0 +1,29 @@
+/* Bọc section + căn giữa */
+.pl-wrap{
+  width: min(var(--page-max), 100% - 2*var(--page-pad));
+  margin-inline: auto;
+  padding-inline: var(--page-pad);
+}
+
+
+/* Header nhỏ */
+.pl-head { margin: 4px 0 12px; }
+.pl-head h2 {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+/* Lưới sản phẩm: tự chia cột theo chiều rộng */
+.pl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 22px;
+  align-items: start;
+}
+
+/* Trạng thái trống/lỗi */
+.pl-empty, .product-list__error {
+  padding: 24px 0;
+  color: #666;
+  font-size: 14px;
+}
