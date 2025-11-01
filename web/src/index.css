@@ -7,11 +7,9 @@ html { scrollbar-gutter: stable both-edges; }
 
 :root{
   --page-max: 1400px;
-  --page-pad: 25px;
-  --radius-lg: 20px;
   --shadow-sm: 0 6px 16px rgba(0,0,0,.08);
   --shadow-md: 0 12px 30px rgba(0,0,0,.12);
-  --brand: #f29b18;
+  --brand: #F58220;
   --text: #222;
   --muted: #666;
   --bg: #fff;

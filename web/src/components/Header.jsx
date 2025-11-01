@@ -1,35 +1,44 @@
 import { useEffect, useRef, useState } from "react";
-import { useAuth } from "../features/auth/hooks/useAuth";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { FaUser, FaShoppingCart, FaSearch } from "react-icons/fa";
-import "./Header.css";
+import "./css/Header.css";
+import { useAuthContext as useAuth } from "../hooks/useAuth.jsx";
 
-export default function Header({ cartCount = 0, onSearch }) {   // ❌ bỏ userName ở props
+export default function Header({ cartCount = 0 }) {
   const [q, setQ] = useState("");
+  const [scrolled, setScrolled] = useState(false);
   const [openCats, setOpenCats] = useState(false);
   const [openUser, setOpenUser] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+
   const catsRef = useRef(null);
   const userRef = useRef(null);
 
-  const CATEGORIES = [
-    { to: "/menu/combo", label: "Combo", img: "/static/cat/combo.png" },
-    { to: "/menu/pasta", label: "Món mỳ", img: "/static/cat/pasta.png" },
-    { to: "/menu/pizza", label: "Pizza", img: "/static/cat/pizza.png" },
-    { to: "/menu/salad", label: "Salad", img: "/static/cat/salad.png" },
-    { to: "/menu/drink", label: "Thức uống", img: "/static/cat/drink.png" },
-  ];
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();           // 👈 lấy user từ context
+  const isAuthenticated = !!user;
+  const displayName = user?.firstName || user?.email || "Tài khoản";
 
+const CATEGORIES = [
+  { to: "/category/burger", label: "Burger", img: "/static/cat/burger.png" },
+  { to: "/category/pizza",  label: "Pizza",  img: "/static/cat/pizza.png" },
+  { to: "/category/drink",  label: "Thức uống", img: "/static/cat/drink.png" },
+];
+
+  // đóng dropdown khi click ra ngoài
   useEffect(() => {
     function onDocClick(e) {
-      if (catsRef.current && !catsRef.current.contains(e.target)) setOpenCats(false);
-      if (userRef.current && !userRef.current.contains(e.target)) setOpenUser(false);
+      if (catsRef.current && !catsRef.current.contains(e.target)) {
+        setOpenCats(false);
+      }
+      if (userRef.current && !userRef.current.contains(e.target)) {
+        setOpenUser(false);
+      }
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  // sticky header
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4);
     window.addEventListener("scroll", onScroll);
@@ -38,29 +47,39 @@ export default function Header({ cartCount = 0, onSearch }) {   // ❌ bỏ user
 
   function submitSearch(e) {
     e.preventDefault();
-    const query = q.trim();
-    if (!query) return;
-    if (onSearch) onSearch(query);
-    else window.history.pushState({}, "", `/search?q=${encodeURIComponent(query)}`);
+    const term = q.trim();
+    if (!term) return;
+    navigate(`/search?q=${encodeURIComponent(term)}`);
   }
 
-  // LẤY USER TỪ CONTEXT (user đến từ db.json qua authClient -> useAuth)
-  const { user, isAuthenticated, logout } = useAuth();
-  const displayName = user?.username || user?.email || "";   // ✅ tên hiển thị
   return (
     <header className={`ff-header ${scrolled ? "scrolled" : ""}`}>
       <div className="ff-container">
         <nav className="ff-nav">
           <Link to="/" className="ff-logo">
-<img src="/static/common/logo.png" alt="KALS" />
+            <img src="/static/common/Kinget.png" alt="Kinget" />
           </Link>
+
           <ul className="ff-menu">
-            <li><NavLink to="/" end>Trang chủ</NavLink></li>
-            <li className="ff-has-dd" ref={catsRef}>
-              <NavLink to="/menu/combo" className="ff-menu-link">Thực đơn</NavLink>
+            <li>
+              <NavLink to="/" end>
+                Trang chủ
+              </NavLink>
+            </li>
+            <li
+              className={`ff-has-dd ${openCats ? "open" : ""}`}
+              ref={catsRef}
+            >
+              <button
+                type="button"
+                className="ff-menu-link"
+                onClick={() => setOpenCats((v) => !v)}
+              >
+                Thực đơn
+              </button>
               <div className="ff-dropdown" role="menu" aria-label="Thực đơn">
                 <div className="ff-cat-grid">
-                  {CATEGORIES.map(c => (
+                  {CATEGORIES.map((c) => (
                     <NavLink key={c.to} to={c.to} className="ff-cat">
                       <img src={c.img} alt="" />
                       <span>{c.label}</span>
@@ -75,38 +94,57 @@ export default function Header({ cartCount = 0, onSearch }) {   // ❌ bỏ user
             <form className="ff-search" onSubmit={submitSearch}>
               <input
                 value={q}
-                onChange={e => setQ(e.target.value)}
+                onChange={(e) => setQ(e.target.value)}
                 placeholder="Tìm..."
                 aria-label="Tìm kiếm"
               />
-              <button type="submit" aria-label="Tìm kiếm"><FaSearch /></button>
+              <button type="submit" aria-label="Tìm kiếm">
+                <FaSearch />
+              </button>
             </form>
 
+            {/* --- TÀI KHOẢN --- */}
             <div className="ff-user" ref={userRef}>
-              <NavLink
-                to={isAuthenticated ? "/account" : "/auth"}   // ✅ đúng route
-                className="ff-menu-link ff-user-link"
-                aria-haspopup="menu"
-              >
-                <FaUser size={24} />
-              </NavLink>
-
-              <div className="ff-user-dd" role="menu" aria-label="Tài khoản">
-                {isAuthenticated ? (
-                  <>
+              {/* nếu chưa login → đi thẳng /auth */}
+              {!isAuthenticated ? (
+                <NavLink
+                  to="/login"
+                  className="ff-user-link"
+                  aria-label="Tài khoản"
+                >
+                  <FaUser size={22} />
+                </NavLink>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setOpenUser((v) => !v)}
+                    className="ff-user-link"
+                    aria-label="Tài khoản"
+                  >
+                    <FaUser size={22} />
+                  </button>
+                  <div
+                    className={`ff-user-dd ${openUser ? "show" : ""}`}
+                    role="menu"
+                  >
                     <div className="ff-user-name">{displayName}</div>
                     <NavLink to="/orders">Lịch sử đơn hàng</NavLink>
-                    <button type="button" onClick={logout}>Đăng xuất</button>
-                  </>
-                ) : (
-                  <>
-                    <NavLink to="/auth">Đăng nhập</NavLink>
-                    <NavLink to="/auth">Đăng ký</NavLink>
-                  </>
-                )}
-              </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        logout();
+                        setOpenUser(false);
+                      }}
+                    >
+                      Đăng xuất
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
+            {/* --- CART --- */}
             <Link to="/cart" className="ff-cart" aria-label="Giỏ hàng">
               <FaShoppingCart />
               {cartCount > 0 && <span className="ff-badge">{cartCount}</span>}
