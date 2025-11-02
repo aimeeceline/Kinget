@@ -1,14 +1,20 @@
+// src/pages/Cart.jsx
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./css/cart.css";
 import { db } from "@shared/FireBase";
 import {
   collection,
-  getDocs,
+  onSnapshot,
   deleteDoc,
   doc,
   updateDoc,
 } from "firebase/firestore";
+import {
+  calcPrice as calcCartPrice,
+  removeCartItem,
+  updateCartQty,
+} from "../services/cartClient";
 
 export default function CartPage() {
   const navigate = useNavigate();
@@ -18,38 +24,54 @@ export default function CartPage() {
 
   // popup xoá
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null); // {cartDocId, name}
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const userStr = localStorage.getItem("user");
   const currentUser = userStr ? JSON.parse(userStr) : null;
   const userId = currentUser?.id;
 
-  // ===== lấy giỏ =====
-  const fetchCart = useCallback(async () => {
-    if (!userId) return;
-    setLoading(true);
-    try {
-      const cartRef = collection(db, "users", userId, "cart");
-      const snap = await getDocs(cartRef);
+  // ===== realtime cart =====
+  const setupCartListener = useCallback(() => {
+    if (!userId) return () => {};
 
-      // 👇 giữ lại id document trong biến khác
-      const data = snap.docs.map((d) => {
-        const row = d.data();
-        return {
-          cartDocId: d.id, // id thực sự để update / delete
-          ...row,
-        };
-      });
+    const cartRef = collection(db, "users", userId, "cart");
 
-      setItems(data);
-      setSelectedIds(data.map((d) => d.cartDocId));
-    } catch (err) {
-      console.error("Lỗi lấy giỏ:", err);
-      setItems([]);
-      setSelectedIds([]);
-    } finally {
-      setLoading(false);
-    }
+    const unsub = onSnapshot(
+      cartRef,
+      (snap) => {
+        const data = snap.docs.map((d) => {
+          const row = d.data();
+          const qty =
+            typeof row.quantity === "number" && row.quantity > 0
+              ? row.quantity
+              : 1;
+
+          // nếu doc có price thì dùng luôn, nếu không thì tính lại
+          const unit =
+            typeof row.price === "number" ? row.price : calcCartPrice(row);
+
+          return {
+            cartDocId: d.id,
+            ...row,
+            quantity: qty,
+            _unitPrice: unit,
+            _lineTotal: unit * qty,
+          };
+        });
+
+        setItems(data);
+        setSelectedIds(data.map((d) => d.cartDocId));
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Lỗi nghe giỏ:", err);
+        setItems([]);
+        setSelectedIds([]);
+        setLoading(false);
+      }
+    );
+
+    return unsub;
   }, [userId]);
 
   useEffect(() => {
@@ -57,33 +79,31 @@ export default function CartPage() {
       navigate("/login");
       return;
     }
-    fetchCart();
-  }, [userId, navigate, fetchCart]);
+    const unsub = setupCartListener();
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [userId, navigate, setupCartListener]);
 
-  // ===== mở popup xoá =====
+  // ===== xoá =====
   const askDelete = (item) => {
     setDeleteTarget(item);
     setConfirmOpen(true);
   };
 
-  // ===== xác nhận xoá =====
   const handleConfirmDelete = async () => {
     if (!userId || !deleteTarget) {
       setConfirmOpen(false);
       return;
     }
-
-    const docId = deleteTarget.cartDocId; // 👈 dùng id của document
     try {
-      await deleteDoc(doc(db, "users", userId, "cart", docId));
+      // dùng service nếu thích
+      await removeCartItem(userId, deleteTarget.cartDocId);
+      // hoặc:
+      // await deleteDoc(doc(db, "users", userId, "cart", deleteTarget.cartDocId));
     } catch (e) {
       console.error("Xoá Firestore lỗi:", e);
     }
-
-    // cập nhật state
-    setItems((prev) => prev.filter((it) => it.cartDocId !== docId));
-    setSelectedIds((prev) => prev.filter((id) => id !== docId));
-
     setConfirmOpen(false);
     setDeleteTarget(null);
   };
@@ -92,13 +112,12 @@ export default function CartPage() {
   const handleChangeQty = async (cartDocId, newQty) => {
     if (!userId) return;
     if (newQty < 1) return;
-    const ref = doc(db, "users", userId, "cart", cartDocId);
-    await updateDoc(ref, { quantity: newQty });
-    setItems((prev) =>
-      prev.map((it) =>
-        it.cartDocId === cartDocId ? { ...it, quantity: newQty } : it
-      )
-    );
+    try {
+      await updateCartQty(userId, cartDocId, newQty);
+      // không setState thủ công vì onSnapshot sẽ bắn lại
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // tick / bỏ tick 1 món
@@ -122,9 +141,11 @@ export default function CartPage() {
   // tính tổng
   const total = items.reduce((sum, it) => {
     if (!selectedIds.includes(it.cartDocId)) return sum;
-    const line = typeof it.price === "number" ? it.price : 0;
-    const qty = typeof it.quantity === "number" ? it.quantity : 1;
-    return sum + line * qty;
+    const line =
+      typeof it._lineTotal === "number"
+        ? it._lineTotal
+        : (it.price || 0) * (it.quantity || 1);
+    return sum + line;
   }, 0);
 
   // helper topping
@@ -138,6 +159,9 @@ export default function CartPage() {
     }
     if (it.selectedTopping && typeof it.selectedTopping === "object") {
       return <span>Topping: {it.selectedTopping.label}</span>;
+    }
+    if (it.selectedAddOn && typeof it.selectedAddOn === "object") {
+      return <span>Topping: {it.selectedAddOn.label}</span>;
     }
     return null;
   };
@@ -182,9 +206,7 @@ export default function CartPage() {
               {/* ảnh */}
               <div className="cart-thumb">
                 <img
-                  src={
-                    it.image || "https://via.placeholder.com/80?text=Food"
-                  }
+                  src={it.image || "https://via.placeholder.com/80?text=Food"}
                   alt={it.name}
                 />
               </div>
@@ -209,7 +231,7 @@ export default function CartPage() {
 
               {/* đơn giá */}
               <div className="cart-unit-price">
-                {(it.price || 0).toLocaleString("vi-VN")} đ
+                {(it._unitPrice || it.price || 0).toLocaleString("vi-VN")} đ
               </div>
 
               {/* qty */}
@@ -242,17 +264,14 @@ export default function CartPage() {
 
               {/* tổng dòng */}
               <div className="cart-line-price">
-                {((it.price || 0) * (it.quantity || 1)).toLocaleString(
-                  "vi-VN"
-                )}{" "}
+                {(it._lineTotal ||
+                  (it.price || 0) * (it.quantity || 1)
+                ).toLocaleString("vi-VN")}{" "}
                 đ
               </div>
 
               {/* nút xoá */}
-              <button
-                className="cart-delete"
-                onClick={() => askDelete(it)}
-              >
+              <button className="cart-delete" onClick={() => askDelete(it)}>
                 Xóa
               </button>
             </div>
@@ -268,9 +287,7 @@ export default function CartPage() {
         <button
           className="cart-checkout"
           disabled={selectedIds.length === 0}
-          onClick={() =>
-            navigate("/checkout", { state: { cartItemIds: selectedIds } })
-          }
+          onClick={() => navigate("/checkout", { state: { selectedIds } })}
         >
           Thanh toán ({selectedIds.length})
         </button>

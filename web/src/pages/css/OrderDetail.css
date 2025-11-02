@@ -1,0 +1,312 @@
+/* ===== Trang chi tiết đơn hàng ===== */
+.odetail-page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 18px 14px 90px;
+  background: #fff;
+}
+
+/* box chung */
+.odetail-box {
+  background: #fff;
+  border: 1px solid #f2f2f2;
+  border-radius: 12px;
+  padding: 14px 16px 12px;
+  margin-bottom: 14px;
+}
+
+/* ===== Timeline 4 trạng thái ===== */
+.odetail-timeline {
+  display: flex;
+  align-items: flex-start;
+   justify-content: center;
+  padding: 16px 20px 10px;
+  gap: 0;
+}
+
+.odt-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 160px;
+  text-align: center;
+}
+
+.odt-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 3px solid #d1fae5;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #22c55e;
+  z-index: 2;
+}
+
+.odt-circle.is-active {
+  border-color: #22c55e;
+  background: #22c55e;
+  color: #fff;
+}
+
+.odt-line {
+  position: absolute;
+  top: 21px;
+  left: 42px;
+  width: 120px;
+  height: 3px;
+  background: #e2e8f0;
+  z-index: 1;
+}
+
+.odt-line.is-active {
+  background: #22c55e;
+}
+
+.odt-label {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.odt-time {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* ===== Box đã hủy ===== */
+.odetail-cancelled-box {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.odetail-cancelled-icon {
+  width: 34px;
+  height: 34px;
+  background: #fee2e2;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.odetail-cancelled-title {
+  font-weight: 600;
+  color: #b91c1c;
+}
+
+.odetail-cancelled-sub {
+  font-size: 13px;
+  color: #b91c1c;
+}
+
+/* ===== Địa chỉ ===== */
+.odetail-title {
+  font-weight: 600;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.odetail-icon-orange {
+  width: 26px;
+  height: 26px;
+  background: #fff7ed;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.odetail-address-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.odetail-address-detail {
+  color: #4b5563;
+  font-size: 14px;
+}
+
+/* ===== Sản phẩm ===== */
+.odetail-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.odetail-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.odetail-item:last-child {
+  border-bottom: none;
+}
+
+.odetail-item img {
+  width: 54px;
+  height: 54px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.odetail-item-info {
+  flex: 1;
+}
+
+.odetail-item-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.odetail-item-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.odetail-item-qty {
+  width: 40px;
+  text-align: right;
+  color: #475569;
+}
+
+.odetail-item-price {
+  min-width: 90px;
+  text-align: right;
+  color: #e11d48;
+  font-weight: 600;
+}
+
+.odetail-line {
+  margin: 10px 0;
+  height: 1px;
+  background: #f3f4f6;
+}
+
+.odetail-total-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.odetail-total-row--big {
+  font-weight: 700;
+  color: #dc2626;
+}
+
+/* ===== Info box ===== */
+.odetail-info-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.odetail-info-row span:first-child {
+  width: 150px;
+  color: #475569;
+}
+
+/* ===== Actions (hủy / theo dõi) ===== */
+.odetail-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.odetail-cancel {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.odetail-track-btn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.odetail-back {
+  background: #e5e7eb;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+/* ===== Modal tracking ===== */
+.odetail-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.odetail-modal {
+  background: #fff;
+  width: min(820px, 96%);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.15);
+}
+
+.odetail-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.odetail-modal-body {
+  padding: 12px 16px 16px;
+}
+
+@media (max-width: 768px) {
+  .odetail-page {
+    padding-bottom: 120px;
+  }
+
+  .odetail-timeline {
+    overflow-x: auto;
+  }
+
+  .odt-line {
+    width: 90px;
+  }
+
+  .odetail-info-row {
+    flex-direction: column;
+  }
+}

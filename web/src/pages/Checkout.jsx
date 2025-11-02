@@ -15,7 +15,6 @@ export default function CheckoutPage() {
   const location = useLocation();
 
   // ===== 1. lấy state gửi từ Cart =====
-  // Cart đang navigate("/checkout", { state: { selectedIds: [...] } })
   const selectedFromCart = Array.isArray(location.state?.selectedIds)
     ? location.state.selectedIds
     : [];
@@ -25,12 +24,25 @@ export default function CheckoutPage() {
   const userStr = localStorage.getItem("user");
   const currentUser = userStr ? JSON.parse(userStr) : null;
   const userId = currentUser?.id;
+  const orderUserId = currentUser?.phone || currentUser?.id;
 
   // ===== 3. state trong trang =====
-  const [cartItems, setCartItems] = useState([]);     // toàn bộ giỏ trong Firestore
-  const [selectedIds, setSelectedIds] = useState([]); // mấy món sẽ thanh toán
-  const [shippingMethod, setShippingMethod] = useState("bike"); // bike | drone
-  const [paymentMethod, setPaymentMethod] = useState("cod");    // cod | bank
+  const [cartItems, setCartItems] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [shippingMethod, setShippingMethod] = useState("bike"); // bike | drone (UI)
+  const [paymentMethod, setPaymentMethod] = useState("cod"); // cod | bank (UI)
+  const [address, setAddress] = useState(
+    ""
+  );
+  const [receiverName, setReceiverName] = useState(
+    currentUser?.firstName || "Khách"
+  );
+  const [receiverPhone, setReceiverPhone] = useState(
+    currentUser?.phone || ""
+  );
+  const [deliveryLat, setDeliveryLat] = useState(null);
+  const [deliveryLng, setDeliveryLng] = useState(null);
+
 
   // ===== 4. load giỏ theo realtime =====
   useEffect(() => {
@@ -47,18 +59,13 @@ export default function CheckoutPage() {
       }));
       setCartItems(data);
 
-      // 👇 quan trọng: quyết định chọn cái nào
       if (cameFromCart) {
-        // chỉ giữ lại mấy id được gửi từ cart và vẫn còn trong giỏ
         const valid = selectedFromCart.filter((id) =>
           data.some((d) => d.cartId === id)
         );
         setSelectedIds(valid);
-        console.log("[Checkout] ✅ nhận từ Cart:", valid);
       } else {
-        // vào thẳng /checkout hoặc F5 -> chọn hết
         setSelectedIds(data.map((d) => d.cartId));
-        console.log("[Checkout] ✅ không có state, chọn hết");
       }
     });
 
@@ -80,10 +87,22 @@ export default function CheckoutPage() {
     selectedItems.length === 0
       ? 0
       : shippingMethod === "drone"
-      ? 35000
-      : 15000;
+        ? 20000
+        : 10000;
 
   const grandTotal = subtotal + shippingFee;
+
+  // ===== helper: normalize item giống app =====
+  const normalizeOrderItem = (item) => {
+    return {
+      ...item,
+      selectedSize: item.selectedSize ?? null,
+      selectedBase: item.selectedBase ?? null,
+      selectedTopping: item.selectedTopping ?? null,
+      selectedAddOn: item.selectedAddOn ?? null,
+      note: item.note ?? null,
+    };
+  };
 
   // ===== 6. submit đơn hàng =====
   const handlePlaceOrder = async () => {
@@ -95,19 +114,45 @@ export default function CheckoutPage() {
       alert("Không có món nào để đặt.");
       return;
     }
+    if (!receiverName.trim()) {
+      alert("Vui lòng nhập tên người nhận.");
+      return;
+    }
+    if (!receiverPhone.trim()) {
+      alert("Vui lòng nhập số điện thoại.");
+      return;
+    }
+    if (!address.trim()) {
+      alert("Vui lòng nhập địa chỉ giao hàng.");
+      return;
+    }
 
     try {
+      // map giá trị UI → giá trị app
+      const shippingForDb = shippingMethod === "bike" ? "motorbike" : "drone";
+      const paymentForDb = paymentMethod === "cod" ? "cash" : "bank";
+
+      const normalizedItems = selectedItems.map((it) => normalizeOrderItem(it));
+
       await addDoc(collection(db, "orders"), {
-        userId,
-        items: selectedItems,
-        shippingMethod,
-        paymentMethod,
+        userId: orderUserId,
+        receiverName: receiverName.trim(),
+        receiverPhone: receiverPhone.trim(),
+        address: address.trim(),           // 👈 địa chỉ chữ (từ Nominatim hoặc user gõ)
+        delivery:
+          deliveryLat && deliveryLng
+            ? { lat: deliveryLat, lng: deliveryLng }
+            : null,                        // 👈 để màn tracking vẽ map
+        items: normalizedItems,
+        shippingMethod: shippingForDb,
+        paymentMethod: paymentForDb,
         subtotal,
         shippingFee,
         total: grandTotal,
-        status: "pending",
+        status: "processing",
         createdAt: serverTimestamp(),
       });
+
       alert("Đặt hàng thành công!");
       navigate("/"); // hoặc /orders
     } catch (err) {
@@ -116,27 +161,101 @@ export default function CheckoutPage() {
     }
   };
 
-  // ===== 7. nếu chưa login thì ko render =====
   if (!userId) return null;
 
   return (
     <div className="checkout-page">
       <h1>Thanh toán</h1>
 
-      {/* ĐỊA CHỈ GIẢ */}
+      {/* ĐỊA CHỈ (cho nhập) */}
       <section className="ck-address">
         <div className="ck-address-left">
-          <div className="ck-address-name">{currentUser?.firstName || "Khách"}</div>
-          <div className="ck-address-detail">
-            284 An Dương Vương, P.3, Q.5, TP.HCM
-          </div>
+          <label className="ck-field">
+            <span className="ck-field-label">Tên:</span>
+            <input
+              className="ck-address-input"
+              value={receiverName}
+              onChange={(e) => setReceiverName(e.target.value)}
+              placeholder="Tên người nhận"
+            />
+          </label>
+
+          <label className="ck-field">
+            <span className="ck-field-label">SĐT:</span>
+            <input
+              className="ck-address-input"
+              value={receiverPhone}
+              onChange={(e) => setReceiverPhone(e.target.value)}
+              placeholder="Số điện thoại"
+            />
+          </label>
+
+          <label className="ck-field">
+            <span className="ck-field-label">Địa chỉ:</span>
+            <input
+              className="ck-address-input"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Địa chỉ giao hàng"
+            />
+          </label>
+
+          <button
+            type="button"
+            className="ck-map-btn"
+            onClick={() => {
+              if (!navigator.geolocation) {
+                alert("Trình duyệt không hỗ trợ định vị");
+                return;
+              }
+
+              navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                  const { latitude, longitude } = pos.coords;
+                  setDeliveryLat(latitude);
+                  setDeliveryLng(longitude);
+
+                  try {
+                    // gọi Nominatim
+                    const resp = await fetch(
+                      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+                    );
+                    const data = await resp.json();
+                    if (data && data.display_name) {
+                      // ⬅️ địa chỉ dạng chữ
+                      setAddress(data.display_name);
+                    } else {
+                      // fallback: vẫn để toạ độ
+                      setAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+                    }
+                  } catch (err) {
+                    console.error("Reverse geocode lỗi:", err);
+                    setAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+                  }
+                },
+                (err) => {
+                  console.error(err);
+                  alert("Không lấy được vị trí");
+                }
+              );
+            }}
+          >
+            Lấy vị trí hiện tại
+          </button>
         </div>
+
         <button
           type="button"
           className="ck-address-edit"
-          onClick={() => alert("Làm màn hình chọn địa chỉ sau 😁")}
+          onClick={() => {
+            setReceiverName(currentUser?.firstName || "Khách");
+            setReceiverPhone(currentUser?.phone || "");
+            setAddress("284 An Dương Vương, P.3, Q.5, TP.HCM");
+            setDeliveryLat(null);
+            setDeliveryLng(null);
+          }}
         >
-          &gt;
+          ↺
         </button>
       </section>
 
@@ -149,10 +268,7 @@ export default function CheckoutPage() {
           selectedItems.map((it) => (
             <div key={it.cartId} className="ck-item">
               <img
-                src={
-                  it.image ||
-                  "https://via.placeholder.com/60?text=Food"
-                }
+                src={it.image || "https://via.placeholder.com/60?text=Food"}
                 alt={it.name}
               />
               <div className="ck-item-info">
@@ -161,15 +277,10 @@ export default function CheckoutPage() {
                   {it.selectedSize && (
                     <span>
                       {it.selectedSize.label} (
-                      {it.selectedSize.price
-                        ? it.selectedSize.price.toLocaleString("vi-VN")
-                        : 0}{" "}
-                      đ)
+                      {(it.selectedSize.price || 0).toLocaleString("vi-VN")} đ)
                     </span>
                   )}
-                  {it.selectedBase && (
-                    <span>Đế: {it.selectedBase.label}</span>
-                  )}
+                  {it.selectedBase && <span>Đế: {it.selectedBase.label}</span>}
                   {it.selectedTopping && (
                     <span>Topping: {it.selectedTopping.label}</span>
                   )}
@@ -195,7 +306,6 @@ export default function CheckoutPage() {
       {/* PHƯƠNG THỨC VẬN CHUYỂN */}
       <section className="ck-section">
         <h3>Phương thức vận chuyển</h3>
-
         <div
           className={
             "ck-option " +
@@ -209,7 +319,6 @@ export default function CheckoutPage() {
             <span className="ck-option__check">✔</span>
           )}
         </div>
-
         <div
           className={
             "ck-option " +
@@ -228,7 +337,6 @@ export default function CheckoutPage() {
       {/* PHƯƠNG THỨC THANH TOÁN */}
       <section className="ck-section">
         <h3>Phương thức thanh toán</h3>
-
         <div
           className={
             "ck-option " + (paymentMethod === "cod" ? "ck-option--active" : "")
@@ -241,7 +349,6 @@ export default function CheckoutPage() {
             <span className="ck-option__check">✔</span>
           )}
         </div>
-
         <div
           className={
             "ck-option " + (paymentMethod === "bank" ? "ck-option--active" : "")

@@ -6,134 +6,207 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  onSnapshot,
+  doc,
   serverTimestamp,
+  deleteDoc,
 } from "firebase/firestore";
 import { db } from "@shared/FireBase";
 
-/**
- * GIỐNG APP:
- * `${food.id || food.name}-${size || noSize}-${base || noBase}-${topping || noTop}-${addOn || noAdd}-${note || noNote}`
- */
-function buildSignature(product, { selectedSize, selectedBase, selectedTopping, note }) {
-  const sizePart = selectedSize?.label || "noSize";
-  const basePart = selectedBase?.label || "noBase";
+// ==============================
+// 1. Helpers
+// ==============================
 
-  // ⚠️ app dùng "noTop" nha
-  let toppingPart = "noTop";
-  if (Array.isArray(selectedTopping) && selectedTopping.length > 0) {
-    toppingPart = selectedTopping.map((t) => t.label).join("+");
-  } else if (selectedTopping && selectedTopping.label) {
-    toppingPart = selectedTopping.label;
-  }
+// 👉 giống y app: CartContext.tsx
+// `${id}-${size}-${base}-${topping}-${addOn}-${note}`
+export function buildSignature(food, extra = {}) {
+  const sizePart =
+    extra.selectedSize?.label ||
+    food.selectedSize?.label ||
+    "noSize";
 
-  const addPart = "noAdd";
-  const notePart = note?.trim() || "noNote";
+  const basePart =
+    extra.selectedBase?.label ||
+    food.selectedBase?.label ||
+    "noBase";
 
-  return `${product.id || product.name}-${sizePart}-${basePart}-${toppingPart}-${addPart}-${notePart}`;
+  const toppingPart =
+    extra.selectedTopping?.label ||
+    food.selectedTopping?.label ||
+    "noTop";
+
+  const addOnPart =
+    extra.selectedAddOn?.label ||
+    food.selectedAddOn?.label ||
+    "noAdd";
+
+  const notePart = (extra.note || food.note || "").trim() || "noNote";
+
+  return `${food.id || food.name}-${sizePart}-${basePart}-${toppingPart}-${addOnPart}-${notePart}`;
 }
 
-// tính đơn giá giống bên app (size + topping)
-function calcPrice(product, { selectedSize, selectedTopping }) {
-  let price = 0;
+// 👉 giống app: (size ?? price) + base + topping + addOn
+export function calcPrice(food) {
+  if (!food) return 0;
 
-  // ưu tiên size
-  if (selectedSize?.price != null) {
-    price = selectedSize.price;
-  } else if (typeof product.price === "number") {
-    price = product.price;
-  } else if (Array.isArray(product.sizes) && product.sizes[0]?.price != null) {
-    price = product.sizes[0].price;
+  // 1) base = size price | food.selectedSize.price | food.price
+  let price =
+    (food.selectedSize && typeof food.selectedSize.price === "number"
+      ? food.selectedSize.price
+      : null) ??
+    (typeof food.price === "number" ? food.price : null) ??
+    0;
+
+  // 2) base (pizza/burger)
+  if (food.selectedBase?.price) {
+    price += food.selectedBase.price;
   }
 
-  // cộng topping
-  if (Array.isArray(selectedTopping)) {
-    for (const t of selectedTopping) {
-      if (typeof t.price === "number") price += t.price;
+  // 3) topping: có thể mảng hoặc 1 object
+  if (Array.isArray(food.selectedToppings)) {
+    for (const t of food.selectedToppings) {
+      if (t?.price) price += t.price;
     }
-  } else if (selectedTopping?.price != null) {
-    price += selectedTopping.price;
+  } else if (food.selectedTopping?.price) {
+    price += food.selectedTopping.price;
+  }
+
+  // 4) addOn
+  if (food.selectedAddOn?.price) {
+    price += food.selectedAddOn.price;
   }
 
   return price;
 }
 
-/**
- * addToCart(userId, product, options)
- * web sẽ lưu THEO APP
- */
-export async function addToCart(userId, product, options = {}) {
-  if (!userId) throw new Error("NO_AUTH");
-  if (!product) throw new Error("NO_PRODUCT");
+// ==============================
+// 2. Thêm vào giỏ
+// ==============================
 
-  const {
+export async function addToCart(
+  userId,
+  food,
+  {
     selectedSize = null,
     selectedBase = null,
     selectedTopping = null,
-    selectedAddOn = null, // để đúng chỗ
+    selectedAddOn = null,
     note = "",
     quantity = 1,
-  } = options;
-
-  const signature = buildSignature(product, {
-    selectedSize,
-    selectedBase,
-    selectedTopping,
-    note,
-  });
+  } = {}
+) {
+  if (!userId) throw new Error("NO_USER");
+  if (!food) throw new Error("NO_FOOD");
 
   const cartCol = collection(db, "users", userId, "cart");
 
-  // 1. kiếm món trùng chữ ký
-  const snap = await getDocs(query(cartCol, where("signature", "==", signature)));
-
-  const unitPrice = calcPrice(product, { selectedSize, selectedTopping });
-
-  // payload giống app nhất có thể
-  const basePayload = {
-    // 👇 app dùng "id" chứ không phải "productId"
-    id: product.id,
-    name: product.name,
-    image:
-      product.image ||
-      product.imageUrl ||
-      "https://via.placeholder.com/150?text=Food",
-    category: product.category || "",
-    description: product.description || "",
-    // mấy cục dưới là “dư” nhưng app hay lưu → mình cũng lưu
-    sizes: Array.isArray(product.sizes) ? product.sizes : [],
-    bases: Array.isArray(product.bases) ? product.bases : null,
-    addOns: Array.isArray(product.addOns) ? product.addOns : null,
-    toppings: Array.isArray(product.toppings) ? product.toppings : null,
-
-    price: unitPrice,
-    quantity,
+  // build món sẽ lưu
+  const signature = buildSignature(food, {
     selectedSize,
     selectedBase,
     selectedTopping,
     selectedAddOn,
     note,
+  });
+
+  // tính đơn giá đúng app
+  const unitPrice = calcPrice({
+    ...food,
+    selectedSize,
+    selectedBase,
+    selectedTopping,
+    selectedAddOn,
+  });
+
+  // tìm xem đã có món trùng signature chưa
+  const q = query(cartCol, where("signature", "==", signature));
+  const snap = await getDocs(q);
+
+  if (!snap.empty) {
+    // đã có → tăng số lượng
+    const docSnap = snap.docs[0];
+    const data = docSnap.data();
+    const oldQty = typeof data.quantity === "number" ? data.quantity : 1;
+    const newQty = oldQty + quantity;
+
+    await updateDoc(docSnap.ref, {
+      quantity: newQty,
+      price: unitPrice, // luôn giữ đơn giá mới nhất
+      updatedAt: serverTimestamp(),
+    });
+
+    return { merged: true, id: docSnap.id };
+  }
+
+  // chưa có → tạo mới
+  const payload = {
+    id: food.id,
+    name: food.name,
+    image:
+      food.image ||
+      food.imageUrl ||
+      "https://via.placeholder.com/150?text=Food",
+    category: food.category || "",
+    description: food.description || "",
+    sizes: Array.isArray(food.sizes) ? food.sizes : [],
+    bases: Array.isArray(food.bases) ? food.bases : null,
+    toppings: Array.isArray(food.toppings) ? food.toppings : null,
+    addOns: Array.isArray(food.addOns) ? food.addOns : null,
+
+    // lựa chọn của người dùng
+    selectedSize,
+    selectedBase,
+    selectedTopping,
+    selectedAddOn,
+    note,
+    quantity,
+    price: unitPrice,
     signature,
     createdAt: serverTimestamp(),
   };
 
-  if (!snap.empty) {
-    // đã có → tăng số lượng thôi
-    const existedDoc = snap.docs[0];
-    const existedData = existedDoc.data();
-    const oldQty =
-      typeof existedData.quantity === "number" ? existedData.quantity : 1;
-    const newQty = oldQty + quantity;
-
-    await updateDoc(existedDoc.ref, {
-      quantity: newQty,
-      price: unitPrice, // giữ đơn giá mới nhất
-      updatedAt: serverTimestamp(),
-    });
-
-    return { merged: true, id: existedDoc.id };
-  }
-
-  // chưa có → tạo mới
-  const newDoc = await addDoc(cartCol, basePayload);
+  const newDoc = await addDoc(cartCol, payload);
   return { merged: false, id: newDoc.id };
+}
+
+// ==============================
+// 3. Nghe realtime giỏ
+// ==============================
+
+export function listenCart(userId, callback) {
+  if (!userId) return () => {};
+  const cartCol = collection(db, "users", userId, "cart");
+  const unsub = onSnapshot(cartCol, (snap) => {
+    const items = snap.docs.map((d) => {
+      const data = d.data();
+      const qty = typeof data.quantity === "number" ? data.quantity : 1;
+      const unit =
+        typeof data.price === "number" ? data.price : calcPrice(data);
+      return {
+        cartDocId: d.id,
+        ...data,
+        quantity: qty,
+        _unitPrice: unit,
+        _lineTotal: unit * qty,
+      };
+    });
+    callback(items);
+  });
+  return unsub;
+}
+
+// ==============================
+// 4. Update / delete
+// ==============================
+
+export async function updateCartQty(userId, cartDocId, quantity) {
+  if (!userId || !cartDocId) return;
+  const ref = doc(db, "users", userId, "cart", cartDocId);
+  await updateDoc(ref, { quantity });
+}
+
+export async function removeCartItem(userId, cartDocId) {
+  if (!userId || !cartDocId) return;
+  const ref = doc(db, "users", userId, "cart", cartDocId);
+  await deleteDoc(ref);
 }

@@ -41,12 +41,6 @@
   line-height: 1.1;
 }
 
-.pd-price {
-  font-size: 24px;
-  font-weight: 700;
-  color: #111;
-}
-
 .pd-desc {
   color: #555;
   line-height: 1.5;
@@ -107,19 +101,37 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-top: 20px;
+  margin-top: 18px;
 }
 
-.pd-actions-left {
-  /* đẩy phần còn lại qua phải */
-  margin-right: auto;
-}
-
-.pd-actions-right {
+.pd-price-pill {
   display: flex;
   align-items: center;
-  gap: 12px;
+  background: #ff7a00;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.12);
 }
+
+.pd-price-pill__price {
+  padding: 0 18px;
+  color: #fff;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pd-price-pill__btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  padding: 10px 16px 10px 0;
+  cursor: pointer;
+  font-weight: 500;
+}
+
 
 /* nút chung */
 .btn-primary {

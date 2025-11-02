@@ -1,295 +1,320 @@
-// src/pages/ProductDetailPage.jsx
-import { useEffect, useState } from "react";
+// src/pages/ProductDetail.jsx
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-    doc,
-    getDoc,
-    collection,
-    getDocs,
-} from "firebase/firestore";
+import "./css/ProductDetail.css";
+
 import { db } from "@shared/FireBase";
+import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 
 import QuantityInput from "../components/QuantityInput";
 import ProductList from "../components/ProductList";
-import { addToCart } from "../services/cartClient";
+import { addToCart } from "../services/cartClient"; // 👈 dùng service chung
 
-import "./css/ProductDetail.css";
+// ===== helpers =====
 
-// chỉ để hiển thị giá
-function calcCurrentPrice(product, size, topping) {
-    let price = 0;
+// lấy phần tử đầu tiên nếu có
+const pickFirst = (arr) =>
+  Array.isArray(arr) && arr.length > 0 ? arr[0] : null;
 
-    if (size?.price != null) {
-        price = size.price;
-    } else if (typeof product.price === "number") {
-        price = product.price;
-    } else if (Array.isArray(product.sizes) && product.sizes[0]?.price != null) {
-        price = product.sizes[0].price;
-    }
+// tính giá hiện tại để show trên nút
+function calcCurrentPrice(product, selectedSize, selectedExtra, selectedBase) {
+  let price = 0;
 
-    if (Array.isArray(topping)) {
-        topping.forEach((t) => {
-            if (typeof t.price === "number") price += t.price;
-        });
-    } else if (topping?.price != null) {
-        price += topping.price;
-    }
+  // 1. base
+  if (selectedSize && typeof selectedSize.price === "number") {
+    price = selectedSize.price;
+  } else if (typeof product.price === "number") {
+    price = product.price;
+  } else if (Array.isArray(product.sizes) && product.sizes[0]) {
+    price = product.sizes[0].price || 0;
+  }
 
-    return price;
+  // 2. base pizza/burger
+  if (selectedBase && typeof selectedBase.price === "number") {
+    price += selectedBase.price;
+  }
+
+  // 3. topping/addOn
+  if (selectedExtra && typeof selectedExtra.price === "number") {
+    price += selectedExtra.price;
+  }
+
+  return price;
+}
+
+// random array
+function shuffle(arr) {
+  return [...arr].sort(() => 0.5 - Math.random());
 }
 
 export default function ProductDetailPage() {
-    const { id } = useParams();
-    const navigate = useNavigate();
+  const { id } = useParams();
+  const navigate = useNavigate();
 
-    const [product, setProduct] = useState(null);
-    const [loading, setLoading] = useState(true);
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-    // lựa chọn
-    const [qty, setQty] = useState(1);
-    const [size, setSize] = useState(null);
-    const [base, setBase] = useState(null);
-    const [topping, setTopping] = useState(null);
-    const [note, setNote] = useState("");
+  // selections
+  const [selectedSize, setSelectedSize] = useState(null);
+  const [selectedBase, setSelectedBase] = useState(null);
+  const [selectedExtra, setSelectedExtra] = useState(null); // có thể là topping hoặc addOn
+  const [note, setNote] = useState("");
+  const [qty, setQty] = useState(1);
 
-    // gợi ý (random)
-    const [related, setRelated] = useState([]);
+  // suggestions
+  const [suggested, setSuggested] = useState([]);
 
-    // user
-    const userStr =
-        typeof window !== "undefined" ? localStorage.getItem("user") : null;
-    const currentUser = userStr ? JSON.parse(userStr) : null;
-    const userId = currentUser?.id;
+  // user
+  const userStr =
+    typeof window !== "undefined" ? localStorage.getItem("user") : null;
+  const currentUser = userStr ? JSON.parse(userStr) : null;
+  const userId = currentUser?.id;
 
-    // load product + random 4 món
-    useEffect(() => {
-        let alive = true;
+  // ===== load product + gợi ý =====
+  useEffect(() => {
+    let alive = true;
 
-        async function load() {
-            setLoading(true);
-            try {
-                // 1. lấy món chi tiết
-                const ref = doc(db, "foods", id);
-                const snap = await getDoc(ref);
-                if (!snap.exists()) {
-                    if (alive) setProduct(null);
-                    return;
-                }
+    async function loadProduct() {
+      setLoading(true);
+      try {
+        // 1) lấy món chính
+        const ref = doc(db, "foods", id);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+          if (alive) {
+            setProduct(null);
+            setLoading(false);
+          }
+          return;
+        }
+        const data = { id: snap.id, ...snap.data() };
 
-                const data = { id: snap.id, ...snap.data() };
-                if (alive) {
-                    setProduct(data);
+        // set selections mặc định
+        const defSize = pickFirst(data.sizes);
+        const defBase = pickFirst(data.bases);
 
-                    // set default
-                    if (Array.isArray(data.sizes) && data.sizes.length > 0) {
-                        setSize(data.sizes[0]);
-                    } else {
-                        setSize(null);
-                    }
-
-                    if (Array.isArray(data.bases) && data.bases.length > 0) {
-                        setBase(data.bases[0]);
-                    } else {
-                        setBase(null);
-                    }
-
-                    if (Array.isArray(data.toppings) && data.toppings.length > 0) {
-                        setTopping(null);
-                    } else {
-                        setTopping(null);
-                    }
-                }
-
-                // 2. lấy hết món để random
-                const allSnap = await getDocs(collection(db, "foods"));
-                const allFoods = allSnap.docs
-                    .map((d) => ({ id: d.id, ...d.data() }))
-                    // loại chính nó
-                    .filter((f) => f.id !== data.id);
-
-                // random 4 cái
-                const shuffled = allFoods.sort(() => 0.5 - Math.random()).slice(0, 4);
-
-                if (alive) {
-                    setRelated(shuffled);
-                }
-            } catch (err) {
-                console.error("Lỗi lấy product detail:", err);
-                if (alive) {
-                    setProduct(null);
-                    setRelated([]);
-                }
-            } finally {
-                if (alive) setLoading(false);
-            }
+        if (alive) {
+          setProduct(data);
+          setSelectedSize(defSize);
+          setSelectedBase(defBase);
+          setSelectedExtra(null);
+          setQty(1);
         }
 
-        load();
-        return () => {
-            alive = false;
-        };
-    }, [id]);
-
-    const handleAddToCart = async () => {
-        if (!product) return;
-
-        if (!userId) {
-            alert("Đăng nhập trước đã nha!");
-            navigate("/login");
-            return;
+        // 2) gợi ý
+        const foodsCol = collection(db, "foods");
+        const allSnap = await getDocs(foodsCol);
+        const allFoods = allSnap.docs
+          .filter((d) => d.id !== data.id)
+          .map((d) => ({ id: d.id, ...d.data() }));
+        const random4 = shuffle(allFoods).slice(0, 4);
+        if (alive) setSuggested(random4);
+      } catch (err) {
+        console.error("Lỗi load product detail:", err);
+        if (alive) {
+          setProduct(null);
         }
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
 
-        try {
-            const res = await addToCart(userId, product, {
-                selectedSize: size,
-                selectedBase: base,
-                selectedTopping: topping,
-                selectedAddOn: null,
-                note,
-                quantity: qty,
-            });
+    loadProduct();
 
-            if (res.merged) {
-                alert("Đã cập nhật số lượng trong giỏ ✅");
-            } else {
-                alert("Đã thêm vào giỏ ✅");
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Không thêm được vào giỏ");
-        }
+    return () => {
+      alive = false;
     };
+  }, [id]);
 
-    if (loading) return <div className="pd-page">Đang tải món ăn...</div>;
-    if (!product) return <div className="pd-page">Không tìm thấy món ăn.</div>;
+  // ===== phân biệt topping vs addOn =====
+  // app: nếu food có toppings → chọn topping
+  //      nếu food có addOns → chọn addOn
+  const extraMeta = useMemo(() => {
+    if (!product) return { type: "none", list: [] };
+    if (Array.isArray(product.toppings) && product.toppings.length > 0) {
+      return { type: "topping", list: product.toppings };
+    }
+    if (Array.isArray(product.addOns) && product.addOns.length > 0) {
+      return { type: "addon", list: product.addOns };
+    }
+    return { type: "none", list: [] };
+  }, [product]);
 
-    const displayPrice = calcCurrentPrice(product, size, topping);
+  // ===== giá 1 đơn vị =====
+  const unitPrice = product
+    ? calcCurrentPrice(product, selectedSize, selectedExtra, selectedBase)
+    : 0;
 
-    return (
-        <div className="pd-page">
-           
-            <div className="pd-content">
-                {/* ảnh */}
-                <div className="pd-left">
-                    <img
-                        src={
-                            product.image ||
-                            product.imageUrl ||
-                            "https://via.placeholder.com/500?text=No+Image"
-                        }
-                        alt={product.name}
-                        onError={(e) => {
-                            e.currentTarget.src =
-                                "https://via.placeholder.com/500?text=No+Image";
-                        }}
-                    />
-                </div>
+  // ===== add to cart =====
+  const handleAddToCart = async () => {
+    if (!product) return;
 
-                {/* info */}
-                <div className="pd-right">
-                    <h1>{product.name}</h1>
-                    <p className="pd-desc">
-                        {product.description || "Món này chưa có mô tả chi tiết."}
-                    </p>
+    if (!userId) {
+      alert("Bạn cần đăng nhập trước nha ✋");
+      navigate("/login");
+      return;
+    }
 
-                    {/* size */}
-                    {Array.isArray(product.sizes) && product.sizes.length > 0 && (
-                        <div className="pd-group">
-                            <h3>Chọn kích cỡ</h3>
-                            <div className="pd-options">
-                                {product.sizes.map((s) => (
-                                    <button
-                                        key={s.label}
-                                        type="button"
-                                        className={size?.label === s.label ? "active" : ""}
-                                        onClick={() => setSize(s)}
-                                    >
-                                        {s.label}{" "}
-                                        {s.price ? s.price.toLocaleString("vi-VN") + " đ" : ""}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+    // nếu món này thực sự là addOn (burger) thì phải gửi selectedAddOn
+    const isAddOn = extraMeta.type === "addon";
 
-                    {/* base */}
-                    {Array.isArray(product.bases) && product.bases.length > 0 && (
-                        <div className="pd-group">
-                            <h3>Chọn đế bánh</h3>
-                            <div className="pd-options">
-                                {product.bases.map((b) => (
-                                    <button
-                                        key={b.label}
-                                        type="button"
-                                        className={base?.label === b.label ? "active" : ""}
-                                        onClick={() => setBase(b)}
-                                    >
-                                        {b.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+    try {
+      const result = await addToCart(userId, product, {
+        selectedSize: selectedSize || null,
+        selectedBase: selectedBase || null,
+        selectedTopping: !isAddOn ? selectedExtra || null : null,
+        selectedAddOn: isAddOn ? selectedExtra || null : null,
+        note: note || "",
+        quantity: qty,
+      });
 
-                    {/* topping */}
-                    {Array.isArray(product.toppings) && product.toppings.length > 0 && (
-                        <div className="pd-group">
-                            <h3>Thêm topping</h3>
-                            <div className="pd-options">
-                                {product.toppings.map((t) => (
-                                    <button
-                                        key={t.label}
-                                        type="button"
-                                        className={topping?.label === t.label ? "active" : ""}
-                                        onClick={() => setTopping(t)}
-                                    >
-                                        {t.label}{" "}
-                                        {t.price
-                                            ? "+" + t.price.toLocaleString("vi-VN") + " đ"
-                                            : ""}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+      if (result?.merged) {
+        alert("Đã cộng thêm vào món có sẵn trong giỏ ✅");
+      } else {
+        alert("Đã thêm vào giỏ ✅");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Không thêm được vào giỏ 😢");
+    }
+  };
 
-                    {/* note */}
-                    <div className="pd-group">
-                        <h3>Ghi chú</h3>
-                        <textarea
-                            value={note}
-                            onChange={(e) => setNote(e.target.value)}
-                            placeholder="Ví dụ: ít cay, thêm phô mai…"
-                        />
-                    </div>
+  if (loading) {
+    return <div className="pd-page">Đang tải món ăn.</div>;
+  }
 
-                    {/* actions */}
-                    <div className="pd-actions-row">
-                        {/* bên trái: số lượng */}
-                        <div className="pd-actions-left">
-                            <QuantityInput value={qty} min={1} onChange={setQty} />
-                        </div>
+  if (!product) {
+    return <div className="pd-page">Không tìm thấy món ăn.</div>;
+  }
 
-                        {/* bên phải: giá + nút */}
-                        <div className="pd-actions-right">
-                            <span className="pd-price">
-                                {displayPrice.toLocaleString("vi-VN")} đ
-                            </span>
-                            <button className="btn-primary" onClick={handleAddToCart}>
-                                Thêm vào giỏ
-                            </button>
-                            
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* gợi ý (random) */}
-            {related.length > 0 && (
-                <div className="pd-related">
-                    <ProductList title="Món gợi ý" items={related} limit={4} />
-                </div>
-            )}
+  return (
+    <div className="pd-page">
+      {/* MAIN */}
+      <div className="pd-content">
+        {/* ảnh */}
+        <div className="pd-left">
+          <img
+            src={
+              product.image ||
+              product.imageUrl ||
+              "https://via.placeholder.com/500?text=No+Image"
+            }
+            alt={product.name}
+            onError={(e) => {
+              e.currentTarget.src =
+                "https://via.placeholder.com/500?text=No+Image";
+            }}
+          />
         </div>
-    );
+
+        {/* info */}
+        <div className="pd-right">
+          <h1>{product.name}</h1>
+          <p className="pd-desc">
+            {product.description || "Món này chưa có mô tả chi tiết."}
+          </p>
+
+          {/* chọn size */}
+          {Array.isArray(product.sizes) && product.sizes.length > 0 && (
+            <div className="pd-group">
+              <h3>Chọn kích cỡ</h3>
+              <div className="pd-options">
+                {product.sizes.map((s) => (
+                  <button
+                    key={s.label}
+                    type="button"
+                    className={selectedSize?.label === s.label ? "active" : ""}
+                    onClick={() => setSelectedSize(s)}
+                  >
+                    {s.label}{" "}
+                    {s.price ? s.price.toLocaleString("vi-VN") + " đ" : ""}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* chọn đế */}
+          {Array.isArray(product.bases) && product.bases.length > 0 && (
+            <div className="pd-group">
+              <h3>Chọn đế bánh</h3>
+              <div className="pd-options">
+                {product.bases.map((b) => (
+                  <button
+                    key={b.label}
+                    type="button"
+                    className={selectedBase?.label === b.label ? "active" : ""}
+                    onClick={() => setSelectedBase(b)}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* topping / addOns */}
+          {extraMeta.list.length > 0 && (
+            <div className="pd-group">
+              <h3>Tùy chọn thêm</h3>
+              <div className="pd-options">
+                {extraMeta.list.map((opt) => (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    className={selectedExtra?.label === opt.label ? "active" : ""}
+                    onClick={() =>
+                      setSelectedExtra(
+                        selectedExtra?.label === opt.label ? null : opt
+                      )
+                    }
+                  >
+                    {opt.label}{" "}
+                    {opt.price
+                      ? "+" + opt.price.toLocaleString("vi-VN") + " đ"
+                      : ""}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ghi chú */}
+          <div className="pd-group">
+            <h3>Ghi chú</h3>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Ví dụ: ít cay, thêm phô mai…"
+            />
+          </div>
+
+          {/* hàng quantity + pill */}
+          <div className="pd-actions-row">
+            <QuantityInput value={qty} min={1} onChange={setQty} />
+
+            <div className="pd-price-pill">
+              <div className="pd-price-pill__price">
+                {(unitPrice * qty).toLocaleString("vi-VN")} đ
+              </div>
+              <button
+                type="button"
+                className="pd-price-pill__btn"
+                onClick={handleAddToCart}
+              >
+                Thêm vào giỏ hàng
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* gợi ý */}
+      {suggested.length > 0 && (
+        <div className="pd-related">
+          <ProductList title="Món gợi ý" items={suggested} limit={4} />
+        </div>
+      )}
+    </div>
+  );
 }

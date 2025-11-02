@@ -162,18 +162,19 @@
 
 /* ===== Tổng tiền ===== */
 .ck-summary {
-  position: fixed;
-  left: 0;
-  right: 0;
+  position: sticky;
   bottom: 0;
   background: #fff;
-  border-top: 1px solid #eee;
+  left: 0;
+  right: 0;
+   border-top: 1px solid #eee;
   padding: 14px 16px 18px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   max-width: 1180px;
   margin: 0 auto;
+  z-index: 999;               /* 👈 để nó nổi lên trên */
 }
 
 .ck-summary-row {
@@ -210,7 +211,44 @@
 .ck-submit:not(:disabled):hover {
   background: #f47c00;
 }
+.ck-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
+.ck-field-label {
+  width: 100px;          /* đủ để hiện "Địa chỉ:" */
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.ck-address-input {
+  flex: 1;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+  width: 300px;
+}
+
+.ck-address-input:focus {
+  border-color: #ff9b36;
+  box-shadow: 0 0 0 2px rgba(255, 155, 54, 0.12);
+}
+.ck-map-btn {
+  margin-top: 4px;
+  background: #ff9b36;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
 /* ===== mobile ===== */
 @media (max-width: 768px) {
   .checkout-page {

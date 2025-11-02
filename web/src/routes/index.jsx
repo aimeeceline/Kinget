@@ -9,6 +9,8 @@ import Category from "../pages/Category";
 import ProductDetailPage from "../pages/ProductDetail";
 import CartPage from "../pages/Cart";
 import CheckoutPage from "../pages/Checkout";
+import OrdersPage from "../pages/Orders";
+import OrderDetailPage from "../pages/OrderDetail";
 //Admin pages
 //import AdminDashboard from "../pages/admin/Dashboard";
 //import AdminOrders from "../pages/admin/Orders";
@@ -25,6 +27,8 @@ export const router = createBrowserRouter([
         {path: "product/:id", element: <ProductDetailPage /> },
         {path: "cart", element: <CartPage /> },
         {path: "checkout", element: <CheckoutPage /> },
+        {path: "orders", element: <OrdersPage /> },
+        {path: "orders/:id", element: <OrderDetailPage /> },  
       // ... những trang user khác
     ],
   },
