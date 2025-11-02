@@ -8,13 +8,13 @@ import { MessageBoxProvider } from "./context/MessageBoxContext";
 const App: React.FC = () => {
   return (
         <MessageBoxProvider>
-    <AuthProvider>
-      <CartProvider>
-          <NavigationContainer>
-            <AppNavigator />
-          </NavigationContainer>
-      </CartProvider>
-    </AuthProvider>
+          <AuthProvider>
+            <CartProvider>
+                <NavigationContainer>
+                  <AppNavigator />
+                </NavigationContainer>
+            </CartProvider>
+          </AuthProvider>
         </MessageBoxProvider>
   );
 };

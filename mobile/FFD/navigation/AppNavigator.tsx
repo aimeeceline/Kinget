@@ -13,6 +13,7 @@ import AddressScreen from "../screens/user/Address";
 import UserNavigator from "./UserNavigator";
 import RestaurantNavigator from "./RestaurantNavigator";
 import CheckoutScreen from "../screens/user/Checkout";
+import TransferScreen from "../screens/user/Transfer";
 import OrderDetailScreen from "../screens/user/OrderDetail";
 
 export type RootStackParamList = {
@@ -25,6 +26,7 @@ export type RootStackParamList = {
   Address: undefined;
   Checkout: undefined;
   OrderDetail: undefined;
+  Transfer: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -141,6 +143,11 @@ const AppNavigator: React.FC = () => {
         name="Checkout"
         component={CheckoutScreen}
         options={{ title: "Thanh toán" }}
+      />
+      <Stack.Screen
+        name="Transfer"
+        component={TransferScreen}
+        options={{ title: "Thanh toán chuyển khoản" }}
       />
       <Stack.Screen
         name="OrderDetail"
