@@ -1,0 +1,229 @@
+/* ===== Trang chi tiết sản phẩm ===== */
+
+.pd-page {
+  padding: 10px 10%;
+  background: #f7f7f7;
+  min-height: calc(100vh - 80px);
+  box-sizing: border-box;
+}
+
+
+/* Khối chính: ảnh + thông tin */
+.pd-content {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 12px 30px #b1b0b0;
+}
+
+/* Ảnh món ăn */
+.pd-left img {
+  width: 360px;
+  height: 360px;
+  object-fit: cover;
+  border-radius: 18px;
+  background: #eaeaea;
+  display: block;
+}
+
+/* Thông tin món */
+.pd-right {
+  flex: 1;
+  min-width: 0;
+}
+
+.pd-right h1 {
+  font-size: 30px;
+  margin-bottom: 10px;
+  line-height: 1.1;
+}
+
+.pd-desc {
+  color: #555;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+/* ===== group chọn (size, đế, topping, ghi chú) ===== */
+.pd-group {
+  margin-bottom: 18px;
+}
+
+.pd-group h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pd-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pd-options button {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px 14px;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+  font-size: 14px;
+}
+
+.pd-options button.active {
+  background: #ff7a00;
+  color: #fff;
+  border-color: #ff7a00;
+}
+
+/* ghi chú */
+.pd-group textarea {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  padding: 8px 10px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+/* ===== hàng action: quantity + nút ===== */
+.pd-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.pd-price-pill {
+  display: flex;
+  align-items: center;
+  background: #ff7a00;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.12);
+}
+
+.pd-price-pill__price {
+  padding: 0 18px;
+  color: #fff;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pd-price-pill__btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  padding: 10px 16px 10px 0;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+
+/* nút chung */
+.btn-primary {
+  background: #111;
+  color: #fff;
+  border: none;
+  padding: 11px 22px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.05s ease-in-out;
+  white-space: nowrap;
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: #fff;
+  border: 1px solid #111;
+  color: #111;
+  padding: 11px 22px;
+  border-radius: 999px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ===== Món gợi ý ===== */
+.pd-related {
+  margin-top: 28px;
+}
+
+.pd-related .pl-wrap {
+  max-width: 100%;
+  margin: 0;
+}
+
+.pd-related .pl-head h2,
+.pd-related h2 {
+  font-size: 20px;
+  margin-bottom: 14px;
+}
+
+/* giữ 4 cái 1 dòng */
+.pd-related .pl-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1200px) {
+  .pd-page {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 992px) {
+  .pd-content {
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .pd-left img {
+    width: 100%;
+    height: auto;
+    max-height: 360px;
+  }
+
+  .pd-actions-row {
+    flex-wrap: wrap;
+  }
+
+  .pd-related .pl-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 576px) {
+  .pd-actions-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+    text-align: center;
+  }
+
+  .pd-related .pl-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,65 @@
+/* ===== Quantity (– 1 +) ===== */
+.qty {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+  height: 36px;
+}
+
+/* nút trái phải */
+.qty button {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111;
+  transition: background 0.1s;
+}
+
+.qty button:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* ô input ở giữa */
+.qty input {
+  width: 52px;
+  border: none;
+  text-align: center;
+  font-weight: 500;
+  font-size: 14px;
+  outline: none;
+  background: transparent;
+}
+
+/* size nhỏ */
+.qty.qty--sm {
+  height: 30px;
+}
+
+.qty.qty--sm button {
+  width: 30px;
+  height: 30px;
+  font-size: 16px;
+}
+
+.qty.qty--sm input {
+  width: 44px;
+  font-size: 13px;
+}
+
+/* ẩn spinner */
+.qty input::-webkit-outer-spin-button,
+.qty input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

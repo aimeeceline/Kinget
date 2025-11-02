@@ -1,10 +1,11 @@
 import { FiPlus } from "react-icons/fi";
-import "./ProductCard.css";
+import { useNavigate } from "react-router-dom";
+import "./css/ProductCard.css";
 
 export default function ProductCard({ product, onAdd }) {
+  const navigate = useNavigate();
   if (!product) return null;
 
-  // ---- Chuẩn hoá field từ nhiều kiểu DB khác nhau ----
   const name =
     product.name ??
     product.title ??
@@ -12,34 +13,51 @@ export default function ProductCard({ product, onAdd }) {
 
   const rawPrice =
     product.price ??
-    product.unitPrice ??
-    product.cost ??
-    0;
+    (Array.isArray(product.sizes) && product.sizes[0]
+      ? product.sizes[0].price
+      : 0);
 
   const priceNumber =
     typeof rawPrice === "string" ? Number(rawPrice) : Number(rawPrice || 0);
 
-  // Ưu tiên: thumbnail -> image -> img -> images[0]
   const rawImg =
     product.thumbnail ??
     product.image ??
     product.img ??
     (Array.isArray(product.images) ? product.images[0] : null);
 
-  // Chuẩn hóa URL ảnh:
-  // - Nếu đã là http(s) thì giữ nguyên
-  // - Nếu là đường dẫn tương đối (vd: "static/product/a.jpg") thì thêm "/" đầu
-  // - Nếu rỗng -> placeholder
   const imgSrc = rawImg
     ? (String(rawImg).startsWith("http")
         ? String(rawImg)
         : (String(rawImg).startsWith("/") ? String(rawImg) : `/${String(rawImg)}`))
     : "https://via.placeholder.com/500?text=No+Image";
 
-  const handleAdd = () => onAdd?.(product);
+  // lấy id để đi tới detail
+  const id =
+    product.id ??
+    product.productId ??
+    product.docId ??
+    product.key ??
+    null;
+
+  const handleCardClick = () => {
+    if (!id) return;
+    navigate(`/product/${id}`);
+  };
+
+  const handleAdd = (e) => {
+    // chặn click lan ra card
+    e.stopPropagation();
+    onAdd?.(product);
+  };
 
   return (
-    <article className="product-card" role="group" aria-label={name}>
+    <article
+      className="product-card"
+      role="group"
+      aria-label={name}
+      onClick={handleCardClick}
+    >
       <div className="product-card__media">
         <img
           src={imgSrc}
@@ -51,7 +69,9 @@ export default function ProductCard({ product, onAdd }) {
         />
       </div>
 
-      <h3 className="product-card__title" title={name}>{name}</h3>
+      <h3 className="product-card__title" title={name}>
+        {name}
+      </h3>
 
       <button
         className="product-card__add"

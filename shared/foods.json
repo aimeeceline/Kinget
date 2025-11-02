@@ -1,0 +1,262 @@
+[
+  {
+    "name": "Pizza Hải Sản Cocktail",
+    "category": "Pizza",
+    "description": "Tôm, cua, giăm bông và xốt Thousand Island.",
+    "image": "http://thepizzacompany.vn/images/thumbs/000/0002212_sf-cocktail-test_500.png",
+    "sizes": [
+      { "label": "Nhỏ", "price": 159000 },
+      { "label": "Vừa", "price": 139000 },
+      { "label": "Lớn", "price": 349000 }
+    ],
+    "bases": [
+    { "label": "Đế mỏng", "price": 0 },
+    { "label": "Đế dày", "price": 0 }
+  ],
+   "toppings": [
+    { "label": "Thêm phô mai", "price": 50000 },
+    { "label": "Thêm xúc xích", "price": 50000 },
+    { "label": "Thêm xúc xích + phô mai ", "price": 99000 }
+  ]
+  },
+  {
+    "name": "Pizza Hải Sản Nhiệt Đới",
+    "category": "Pizza",
+    "description": "Tôm, nghêu, mực, cua, dứa và xốt Thousand Island.",
+    "image": "http://thepizzacompany.vn/images/thumbs/000/0002211_tropical-sf-test_500.png",
+    "sizes": [
+      { "label": "Nhỏ", "price": 159000 },
+      { "label": "Vừa", "price": 139000 },
+      { "label": "Lớn", "price": 349000 }
+    ],
+    "bases": [
+    { "label": "Đế mỏng", "price": 0 },
+    { "label": "Đế dày", "price": 0 }
+  ],
+   "toppings": [
+    { "label": "Thêm phô mai", "price": 50000 },
+    { "label": "Thêm xúc xích", "price": 50000 },
+    { "label": "Thêm xúc xích + phô mai ", "price": 99000 }
+  ]
+  },
+  {
+    "name": "Pizza Tôm Cocktail",
+    "category": "Pizza",
+    "description": "Tôm, nấm, dứa, cà chua và xốt Thousand Island.",
+    "image": "http://thepizzacompany.vn/images/thumbs/000/0002216_shrimp-ctl-test_500.png",
+    "sizes": [
+      { "label": "Nhỏ", "price": 159000 },
+      { "label": "Vừa", "price": 139000 },
+      { "label": "Lớn", "price": 349000 }
+    ],
+    "bases": [
+    { "label": "Đế mỏng", "price": 0 },
+    { "label": "Đế dày", "price": 0 }
+  ],
+   "toppings": [
+    { "label": "Thêm phô mai", "price": 50000 },
+    { "label": "Thêm xúc xích", "price": 50000 },
+    { "label": "Thêm xúc xích + phô mai ", "price": 99000 }
+  ]
+  },
+  {
+    "name": "Pizza Thịt Nguội Xúc Xích",
+    "category": "Pizza",
+    "description": "Thịt nguội, xúc xích, dứa và xốt Thousand Island.",
+    "image": "http://thepizzacompany.vn/images/thumbs/000/0003536_aloha_500.png",
+    "sizes": [
+      { "label": "Nhỏ", "price": 159000 },
+      { "label": "Vừa", "price": 139000 },
+      { "label": "Lớn", "price": 349000 }
+    ],
+    "bases": [
+    { "label": "Đế mỏng", "price": 0 },
+    { "label": "Đế dày", "price": 0 }
+  ],
+   "toppings": [
+    { "label": "Thêm phô mai", "price": 50000 },
+    { "label": "Thêm xúc xích", "price": 50000 },
+    { "label": "Thêm xúc xích + phô mai ", "price": 99000 }
+  ]
+  },
+  {
+    "name": "Pizza Thịt Xông Khói Đặc Biệt",
+    "category": "Pizza",
+    "description": "Thịt giăm bông, thịt xông khói, ớt xanh và cà chua.",
+    "image": "http://thepizzacompany.vn/images/thumbs/000/0002221_bacon-sup_500.png",
+    "sizes": [
+      { "label": "Nhỏ", "price": 159000 },
+      { "label": "Vừa", "price": 139000 },
+      { "label": "Lớn", "price": 349000 }
+    ],
+    "bases": [
+    { "label": "Đế mỏng", "price": 0 },
+    { "label": "Đế dày", "price": 0 }
+  ],
+   "toppings": [
+    { "label": "Thêm phô mai", "price": 50000 },
+    { "label": "Thêm xúc xích", "price": 50000 },
+    { "label": "Thêm xúc xích + phô mai ", "price": 99000 }
+  ]
+  },
+  {
+    "name": "Pizza Thịt Nguội Kiểu Canada",
+    "category": "Pizza",
+    "description": "Thịt nguội và bắp ngọt.",
+    "image": "http://thepizzacompany.vn/images/thumbs/000/0002222_ca-bacon_500.png",
+    "sizes": [
+      { "label": "Nhỏ", "price": 159000 },
+      { "label": "Vừa", "price": 139000 },
+      { "label": "Lớn", "price": 349000 }
+    ],
+    "bases": [
+      { "label": "Đế mỏng", "price": 0 },
+      { "label": "Đế dày", "price": 0 }
+    ],
+    "toppings": [
+      { "label": "Thêm phô mai", "price": 50000 },
+      { "label": "Thêm xúc xích", "price": 50000 },
+      { "label": "Thêm xúc xích + phô mai ", "price": 99000 }
+    ]
+  },
+  {
+    "name": "Pizza Gà Nướng 3 Vị",
+    "category": "Pizza",
+    "description": "Gà nướng, gà bơ tỏi và gà ướp xốt nấm.",
+    "image": "http://thepizzacompany.vn/images/thumbs/000/0002223_ck-trio_500.png",
+    "sizes": [
+      { "label": "Nhỏ", "price": 159000 },
+      { "label": "Vừa", "price": 139000 },
+      { "label": "Lớn", "price": 349000 }
+    ],
+    "bases": [
+    { "label": "Đế mỏng", "price": 0 },
+    { "label": "Đế dày", "price": 0 }
+  ],
+   "toppings": [
+    { "label": "Thêm phô mai", "price": 50000 },
+    { "label": "Thêm xúc xích", "price": 50000 },
+    { "label": "Thêm xúc xích + phô mai ", "price": 99000 }
+  ]
+  },
+  {
+    "name": "Pizza Hải Sản Cao Cấp",
+    "category": "Pizza",
+    "description": "Tôm, cua, mực, nghêu và xốt Marinara.",
+    "image": "http://thepizzacompany.vn/images/thumbs/000/0002214_sf-deluxe_500.png",
+    "sizes": [
+      { "label": "Nhỏ", "price": 159000 },
+      { "label": "Vừa", "price": 139000 },
+      { "label": "Lớn", "price": 349000 }
+    ],
+    "bases": [
+    { "label": "Đế mỏng", "price": 0 },
+    { "label": "Đế dày", "price": 0 }
+  ],
+   "toppings": [
+    { "label": "Thêm phô mai", "price": 50000 },
+    { "label": "Thêm xúc xích", "price": 50000 },
+    { "label": "Thêm xúc xích + phô mai ", "price": 99000 }
+  ]
+  },
+  {
+  "name": "Burger 2 lớp bò, phô mai",
+  "category": "Burger",
+  "description": "Bánh burger bò nướng kèm phô mai tan chảy.",
+  "image": "https://mcdonalds.vn/uploads/2018/food/burgers/doublecheese_bb.png",
+  "sizes": [
+    { "label": "Vừa", "price": 59000 },
+    { "label": "Lớn", "price": 69000 }
+  ],
+  "addOns": [
+    { "label": "Thêm phô mai", "price": 10000 },
+    { "label": "Thêm sốt", "price": 9000 }
+  ]
+},
+  {
+  "name": "Burger Gà phô mai đặc biệt",
+  "category": "Burger",
+  "description": "Bánh burger gà kèm phô mai tan chảy.",
+  "image": "https://mcdonalds.vn/uploads/2018/food/burgers/mcchickendlx_bb.png",
+  "sizes": [
+    { "label": "Vừa", "price": 59000 },
+    { "label": "Lớn", "price": 69000 }
+  ],
+  "addOns": [
+    { "label": "Thêm phô mai", "price": 10000 },
+    { "label": "Thêm sốt", "price": 9000 }
+  ]
+},
+  {
+  "name": "Burger Phi lê Cá phô mai",
+  "category": "Burger",
+  "description": "Bánh burger cá kèm phô mai tan chảy.",
+  "image": "https://mcdonalds.vn/uploads/2018/food/burgers/fof_bb.png",
+  "sizes": [
+    { "label": "Vừa", "price": 59000 },
+    { "label": "Lớn", "price": 69000 }
+  ],
+  "addOns": [
+    { "label": "Thêm phô mai", "price": 10000 },
+    { "label": "Thêm sốt", "price": 9000 }
+  ]
+},
+  {
+  "name": "Burger Big Mac",
+  "category": "Burger",
+  "description": "Burger 2 lớp bò, phô-mai, rau tươi và sốt Big Mac.",
+  "image": "https://mcdonalds.vn/uploads/2018/food/burgers/bigmac_bb.png",
+  "sizes": [
+    { "label": "Vừa", "price": 59000 },
+    { "label": "Lớn", "price": 69000 }
+  ],
+  "addOns": [
+    { "label": "Thêm phô mai", "price": 10000 },
+    { "label": "Thêm sốt", "price": 9000 }
+  ]
+},
+{
+  "name": "Coca Cola",
+  "category": "Drink",
+  "description": "Coca cùng đá mát lạnh.",
+  "image": "https://mcdonalds.vn/uploads/2018/food/beverage/mcd-food-beverages-soft-drinks-coke.png",
+  "sizes": [
+    { "label": "Vừa", "price": 19000 },
+    { "label": "Lớn", "price": 30000 }
+  ]
+},
+{
+  "name": "Nước suối",
+  "category": "Drink",
+  "description": "Nước suối đóng chai Dasani.",
+  "image": "https://mcdonalds.vn/uploads/2018/food/beverage/dasani_water.png",
+  "sizes": [
+    { "label": "Vừa", "price": 19000 },
+    { "label": "Lớn", "price": 30000 }
+  ]
+},
+{
+  "name": "Sprite",
+  "category": "Drink",
+  "description": "Sprite cùng đá mát lạnh.",
+  "image": "https://mcdonalds.vn/uploads/2018/food/beverage/Product_thumb_Sprite.png",
+  "sizes": [
+    { "label": "Vừa", "price": 19000 },
+    { "label": "Lớn", "price": 30000 }
+  ]
+},
+{
+  "name": "Fanta Cam",
+  "category": "Drink",
+  "description": "Fanta cam cùng đá mát lạnh.",
+  "image": "https://mcdonalds.vn/uploads/2018/food/beverage/hero-pdt-Fanta-201703_0.png",
+  "sizes": [
+    { "label": "Vừa", "price": 19000 },
+    { "label": "Lớn", "price": 30000 }
+  ]
+}
+
+
+  
+  
+]
