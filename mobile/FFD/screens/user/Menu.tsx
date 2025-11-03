@@ -17,7 +17,7 @@ import { db } from "../../data/FireBase";
 import { Food } from "../../types/food";
 import FoodCard from "../../components/FoodCard"; // ✅ dùng lại component chung
 
-const categories = ["Tất cả", "Pizza", "Burger", "Combo", "Nước"];
+const categories = ["Tất cả", "Pizza", "Burger", "Drink"];
 
 const MenuScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();

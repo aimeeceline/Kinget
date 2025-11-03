@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     width,
     height,
     backgroundColor: "rgba(0,0,0,0.4)",
-    zIndex: 999,
+    zIndex: 9999,
   },
   messageBox: {
     position: "absolute",
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     alignItems: "center",
-    zIndex: 1000,
+    zIndex: 10000,
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 8,

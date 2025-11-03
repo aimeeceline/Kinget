@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,98 +7,127 @@ import {
   Image,
   TouchableOpacity,
   Alert,
-  Platform,
+  ActivityIndicator,
 } from "react-native";
-
 import { Ionicons } from "@expo/vector-icons";
 import { db } from "../../data/FireBase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { useAuth } from "../../context/AuthContext";
 import { useMessageBox } from "../../context/MessageBoxContext";
-
 
 const OrderDetailScreen = ({ route, navigation }: any) => {
   const { order } = route.params;
   const { user } = useAuth();
-  const { confirm, show } = useMessageBox();  
+  const { show, confirm } = useMessageBox();
+
+  const [orderData, setOrderData] = useState<any>(order);
+  const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-    const userName =
-        user?.firstName && user?.lastName
-            ? `${user.firstName} ${user.lastName}`
-            : user?.firstName ;
-  const getStatusInfo = (status: string) => {
-    switch (status) {
-      case "processing":
-        return { color: "#F9A825", label: "Chờ xác nhận", icon: "time-outline" };
-      case "preparing":
-        return { color: "#db00baff", label: "Đang chuẩn bị", icon: "time-outline" };
-      case "delivering":
-        return { color: "#2196F3", label: "Đang giao", icon: "bicycle-outline" };
-      case "delivered":
-        return { color: "#ede100ff", label: "Đã giao", icon: "bicycle-outline" };
-      case "completed":
-        return { color: "#4CAF50", label: "Hoàn thành", icon: "checkmark-circle-outline" };
-      case "cancelled":
-        return { color: "#E53935", label: "Đã hủy", icon: "close-circle-outline" };
-      default:
-        return { color: "#333", label: "Không xác định", icon: "help-circle-outline" };
-    }
-  };
 
-  const status = getStatusInfo(order.status);
+  // 🔥 Lắng nghe realtime Firestore
+  useEffect(() => {
+    const ref = doc(db, "orders", order.id);
+    const unsubscribe = onSnapshot(ref, (snapshot) => {
+      if (snapshot.exists()) {
+        setOrderData({ id: snapshot.id, ...snapshot.data() });
+      }
+      setLoading(false);
+    });
 
-  const handleCancelOrder = async () => {
-  const ok = await confirm("Bạn có chắc chắn muốn hủy đơn hàng này?");
-  if (!ok) return;
-  await updateDoc(doc(db, "orders", order.id), { status: "cancelled" });
-  show("Đã hủy đơn hàng!", "success");
-};
+    return () => unsubscribe();
+  }, [order.id]);
 
-   const handleReceiveOrder = async () => {
-  const ok = await confirm("Bạn đã nhận được hàng?");
-  if (!ok) return;
+  // 🧭 Hàm cập nhật trạng thái đơn hàng
+  const updateStatus = async (newStatus: string) => {
     try {
       setUpdating(true);
-      await updateDoc(doc(db, "orders", order.id), { status: "delivered" });
-      show("Đơn hàng đã xác nhận!", "success");
+      await updateDoc(doc(db, "orders", orderData.id), { status: newStatus });
+      show(
+        newStatus === "cancelled"
+          ? "Đơn hàng đã được hủy!"
+          : "Cập nhật trạng thái thành công!",
+        "success"
+      );
       navigation.goBack();
     } catch (error) {
-      show("Lỗi khi cập nhật!", "error");
+      show("Lỗi khi cập nhật đơn hàng!", "error");
+      console.error(error);
     } finally {
       setUpdating(false);
     }
-    return;
   };
+
+  const handleCancelOrder = async () => {
+    const ok = await confirm("Bạn có chắc muốn hủy đơn hàng này?");
+    if (!ok) return;
+    updateStatus("cancelled");
+  };
+
+  const handleConfirmReceived = async () => {
+    const ok = await confirm("Xác nhận đã nhận được hàng?");
+    if (!ok) return;
+    updateStatus("completed");
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingBox}>
+        <ActivityIndicator size="large" color="#F58220" />
+        <Text style={{ color: "#555", marginTop: 10 }}>Đang tải đơn hàng...</Text>
+      </View>
+    );
+  }
+
+  const statusColors: any = {
+    processing: "#F9A825",
+    preparing: "#db00ba",
+    delivering: "#2196F3",
+    completed: "#4CAF50",
+    cancelled: "#E53935",
+  };
+
+  const statusLabels: any = {
+    processing: "Chờ xác nhận",
+    preparing: "Đang chuẩn bị",
+    delivering: "Đang giao",
+    completed: "Hoàn tất",
+    cancelled: "Đã hủy",
+  };
+
+  const statusColor = statusColors[orderData.status] || "#333";
+  const statusLabel = statusLabels[orderData.status] || "Không xác định";
+
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        
-        {/* 🧾 Trạng thái đơn hàng */}
+        {/* 🔹 Trạng thái đơn hàng */}
         <View style={styles.statusCard}>
-          <Ionicons name={status.icon as any} size={26} color={status.color} />
+          <Ionicons name="time-outline" size={26} color={statusColor} />
           <View style={{ marginLeft: 10 }}>
-            <Text style={styles.statusLabel}>{status.label}</Text>
+            <Text style={[styles.statusLabel, { color: statusColor }]}>
+              {statusLabel}
+            </Text>
             <Text style={styles.statusSub}>Cảm ơn bạn đã lựa chọn Kinget!</Text>
           </View>
         </View>
 
-        {/* 🏠 Địa chỉ nhận hàng */}
+        {/* 🏠 Thông tin người nhận */}
         <View style={styles.addressCard}>
-          <Text style={styles.addressTitle}>Địa chỉ nhận hàng</Text>
+          <Text style={styles.addressTitle}>Thông tin người nhận</Text>
           <View style={styles.addressRow}>
             <Ionicons name="location-outline" size={20} color="#F58220" />
             <View style={{ flex: 1, marginLeft: 8 }}>
-              <Text style={styles.receiverLine}>
-                <Text style={styles.receiverName}>
-                  {userName || "Nguyễn Văn A"}
-                </Text>{" "}
-                <Text style={styles.receiverPhone}>
-                  {user?.phone ? `(+84) ${user.phone}` : "(+84) 941 863 121"}
-                </Text>
+              <Text style={styles.receiverName}>
+                {orderData.receiverName || "Nguyễn Văn A"}
+              </Text>
+              <Text style={styles.receiverPhone}>
+                {orderData.receiverPhone
+                  ? `(+84) ${orderData.receiverPhone}`
+                  : "(+84) 941 863 121"}
               </Text>
               <Text style={styles.receiverAddress}>
-                {order.receiverAddress ||
-                  "20/11, Lê Ngã, Phường Phú Trung, Quận Tân Phú, TP. Hồ Chí Minh"}
+                {orderData.receiverAddress ||
+                  "105 Bà Huyện Thanh Quan, Quận 3, TP. Hồ Chí Minh"}
               </Text>
             </View>
           </View>
@@ -111,70 +140,57 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
             <Text style={styles.infoTitle}>Sản phẩm</Text>
           </View>
 
-          {order.items.map((item: any, index: number) => {
-            // Gộp tất cả tuỳ chọn nếu có
+          {orderData.items.map((item: any, index: number) => {
             const options: string[] = [];
             if (item.selectedSize?.label) options.push(`Size: ${item.selectedSize.label}`);
             if (item.selectedBase?.label) options.push(`Đế: ${item.selectedBase.label}`);
             if (item.selectedTopping?.label) options.push(`Topping: ${item.selectedTopping.label}`);
             if (item.selectedAddOn?.label) options.push(`Thêm: ${item.selectedAddOn.label}`);
 
-  return (
-    <View key={index} style={styles.itemRow}>
-      <Image
-        source={{ uri: item.image || "https://via.placeholder.com/80" }}
-        style={styles.itemImage}
-      />
-      <View style={{ flex: 1, marginLeft: 10 }}>
-        <Text style={styles.itemName}>{item.name}</Text>
+            return (
+              <View key={index} style={styles.itemRow}>
+                <Image
+                  source={{ uri: item.image || "https://via.placeholder.com/80" }}
+                  style={styles.itemImage}
+                />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.itemName}>{item.name}</Text>
+                  {options.length > 0 && (
+                    <Text style={styles.itemOptions}>{options.join(" • ")}</Text>
+                  )}
+                  {item.note && (
+                    <Text style={styles.itemNote}>Ghi chú: {item.note}</Text>
+                  )}
+                  <Text style={styles.itemQty}>x{item.quantity}</Text>
+                </View>
+                <Text style={styles.itemPrice}>
+                  {(item.price || 0).toLocaleString("vi-VN")}₫
+                </Text>
+              </View>
+            );
+          })}
 
-        {/* Tuỳ chọn */}
-        {options.length > 0 && (
-          <Text style={styles.itemOptions}>{options.join(" • ")}</Text>
-        )}
-
-        {/* Ghi chú */}
-        {item.note && (
-          <Text style={styles.itemNote}>Ghi chú: {item.note}</Text>
-        )}
-
-        {/* Số lượng */}
-        <Text style={styles.itemQty}>x{item.quantity}</Text>
-      </View>
-
-      {/* Giá */}
-      <Text style={styles.itemPrice}>
-        {(item.price || 0).toLocaleString("vi-VN")}₫
-      </Text>
-    </View>
-     );
-})}
-
+          {/* 💰 Tổng tiền */}
           <View style={styles.totalBox}>
             <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Tổng tiền hàng</Text>
-                <Text style={styles.totalValueSmall}>
-                {order.subtotal
-                    ? order.subtotal.toLocaleString("vi-VN")
-                    : (order.total - (order.shippingFee || 15000)).toLocaleString("vi-VN")}₫
-                </Text>
+              <Text style={styles.totalLabel}>Tổng tiền hàng</Text>
+              <Text style={styles.totalValueSmall}>
+                {orderData.subtotal?.toLocaleString("vi-VN")}₫
+              </Text>
             </View>
-
             <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Phí vận chuyển</Text>
-                <Text style={styles.totalValueSmall}>
-                {(order.shippingFee || 15000).toLocaleString("vi-VN")}₫
-                </Text>
+              <Text style={styles.totalLabel}>Phí vận chuyển</Text>
+              <Text style={styles.totalValueSmall}>
+                {orderData.shippingFee?.toLocaleString("vi-VN")}₫
+              </Text>
             </View>
-
             <View style={[styles.totalRow, { borderTopWidth: 0.5, borderColor: "#eee", paddingTop: 6 }]}>
-                <Text style={[styles.totalLabel, { fontWeight: "600" }]}>Tổng cộng</Text>
-                <Text style={styles.totalValue}>
-                {order.total.toLocaleString("vi-VN")}₫
-                </Text>
+              <Text style={[styles.totalLabel, { fontWeight: "600" }]}>Tổng cộng</Text>
+              <Text style={styles.totalValue}>
+                {orderData.total?.toLocaleString("vi-VN")}₫
+              </Text>
             </View>
-            </View>
-
+          </View>
         </View>
 
         {/* 💳 Thông tin đơn hàng */}
@@ -183,19 +199,14 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
             <Ionicons name="receipt-outline" size={20} color="#F58220" />
             <Text style={styles.infoTitle}>Thông tin đơn hàng</Text>
           </View>
-
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Mã đơn hàng:</Text>
-            <Text style={styles.detailValue}>#{order.id.slice(0, 8).toUpperCase()}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Ngày đặt:</Text>
-            <Text style={styles.detailValue}>{order.date}</Text>
+            <Text style={styles.detailValue}>#{orderData.id?.slice(0, 8).toUpperCase()}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Phương thức thanh toán:</Text>
             <Text style={styles.detailValue}>
-              {order.paymentMethod === "bank"
+              {orderData.paymentMethod === "bank"
                 ? "Chuyển khoản ngân hàng"
                 : "Tiền mặt khi nhận hàng"}
             </Text>
@@ -203,220 +214,93 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Hình thức giao hàng:</Text>
             <Text style={styles.detailValue}>
-              {order.shippingMethod === "drone" ? "Giao bằng Drone" : "Giao bằng xe máy"}
+              {orderData.shippingMethod === "drone"
+                ? "Giao bằng Drone"
+                : "Giao bằng xe máy"}
             </Text>
           </View>
         </View>
       </ScrollView>
-      {/* 🧭 Footer hành động */}
-        {order.status === "processing" && (
+
+      {/* 🧭 Footer */}
+      {orderData.status === "processing" && (
         <View style={styles.footer}>
-            <TouchableOpacity
+          <TouchableOpacity
             style={[styles.cancelButton, updating && { opacity: 0.6 }]}
             disabled={updating}
             onPress={handleCancelOrder}
-            >
+          >
             <Text style={styles.cancelText}>
-                {updating ? "Đang hủy..." : "Hủy đơn hàng"}
+              {updating ? "Đang hủy..." : "Hủy đơn hàng"}
             </Text>
-            </TouchableOpacity>
+          </TouchableOpacity>
         </View>
-        )}
-        {order.status === "delivering" && (
+      )}
+
+      {orderData.status === "delivering" && (
         <View style={styles.footer}>
-            <TouchableOpacity
+          <TouchableOpacity
             style={[styles.receiveButton, updating && { opacity: 0.6 }]}
             disabled={updating}
-            onPress={handleReceiveOrder}
-            >
+            onPress={handleConfirmReceived}
+          >
             <Text style={styles.receiveText}>
-                {updating ? "Đang xác nhận..." : "Đã nhận được hàng"}
+              {updating ? "Đang cập nhật..." : "Đã nhận được hàng"}
             </Text>
-            </TouchableOpacity>
+          </TouchableOpacity>
         </View>
-        )}
+      )}
     </View>
   );
 };
 
+export default OrderDetailScreen;
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F6F6F6" },
-
-  backBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    backgroundColor: "#fff",
-    borderBottomWidth: 0.5,
-    borderColor: "#eee",
-  },
-
-  // --- TRẠNG THÁI ---
+  container: { flex: 1, backgroundColor: "#fff" },
+  loadingBox: { flex: 1, justifyContent: "center", alignItems: "center" },
   statusCard: {
     flexDirection: "row",
     alignItems: "center",
+    padding: 15,
     backgroundColor: "#fff",
-    marginTop: 10,
-    padding: 14,
-    borderRadius: 10,
-    marginHorizontal: 10,
-    elevation: 1,
   },
-  statusLabel: { fontWeight: "600", fontSize: 16, color: "#000" },
-  statusSub: { color: "#777", fontSize: 13, marginTop: 2 },
-
-  // --- ĐỊA CHỈ NHẬN HÀNG ---
-  addressCard: {
-    backgroundColor: "#fff",
-    marginTop: 10,
-    marginHorizontal: 10,
-    borderRadius: 10,
-    padding: 14,
-    elevation: 1,
-  },
-  addressTitle: {
-    fontWeight: "600",
-    fontSize: 15,
-    marginBottom: 6,
-    color: "#000",
-  },
-  addressRow: { flexDirection: "row", alignItems: "flex-start" },
-  receiverLine: { flexDirection: "row", alignItems: "center" },
-  receiverName: { fontWeight: "600", color: "#000", fontSize: 14 },
-  receiverPhone: { color: "#666", fontSize: 13 },
-  receiverAddress: {
-    color: "#444",
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 2,
-  },
-
-  // --- SẢN PHẨM ---
-  itemCard: {
-    backgroundColor: "#fff",
-    marginTop: 10,
-    marginHorizontal: 10,
-    borderRadius: 10,
-    padding: 14,
-    elevation: 1,
-  },
+  statusLabel: { fontSize: 16, fontWeight: "700" },
+  statusSub: { color: "#888", fontSize: 13 },
+  addressCard: { margin: 12, padding: 12, backgroundColor: "#fff", borderRadius: 10, elevation: 1 },
+  addressTitle: { fontWeight: "700", fontSize: 15, marginBottom: 5 },
+  addressRow: { flexDirection: "row", alignItems: "center" },
+  receiverName: { fontWeight: "600", fontSize: 15 },
+  receiverPhone: { color: "#555", marginVertical: 2 },
+  receiverAddress: { color: "#777" },
+  itemCard: { margin: 12, padding: 12, backgroundColor: "#fff", borderRadius: 10, elevation: 1 },
   infoHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  infoTitle: { fontWeight: "600", fontSize: 15, marginLeft: 6, color: "#000" },
+  infoTitle: { fontWeight: "700", fontSize: 15, marginLeft: 6 },
   itemRow: {
-  flexDirection: "row",
-  alignItems: "flex-start",
-  borderBottomWidth: 0.5,
-  borderColor: "#eee",
-  paddingVertical: 8,
-},
-itemImage: {
-  width: 60,
-  height: 60,
-  borderRadius: 8,
-  backgroundColor: "#f5f5f5",
-},
-itemName: {
-  fontSize: 14,
-  color: "#222",
-  fontWeight: "600",
-},
-itemOptions: {
-  color: "#666",
-  fontSize: 13,
-  marginTop: 2,
-  flexWrap: "wrap",
-},
-itemNote: {
-  fontSize: 13,
-  color: "#03A678",
-  fontStyle: "italic",
-  marginTop: 2,
-},
-itemQty: {
-  fontSize: 13,
-  color: "#777",
-  marginTop: 2,
-},
-itemPrice: {
-  fontSize: 14,
-  fontWeight: "600",
-  color: "#E53935",
-  marginLeft: 8,
-},
-
-totalBox: {
-  marginTop: 10,
-  borderTopWidth: 0.5,
-  borderColor: "#eee",
-  paddingTop: 8,
-},
-totalRow: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginVertical: 2,
-},
-totalLabel: {
-  fontSize: 14,
-  color: "#333",
-},
-totalValueSmall: {
-  fontSize: 14,
-  color: "#444",
-},
-totalValue: {
-  fontSize: 15,
-  fontWeight: "bold",
-  color: "#E53935",
-},
-
-  // --- THÔNG TIN ĐƠN HÀNG ---
-  detailCard: {
-    backgroundColor: "#fff",
-    marginTop: 10,
-    marginHorizontal: 10,
-    borderRadius: 10,
-    padding: 14,
-    elevation: 1,
-  },
-  detailRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginVertical: 4,
-  },
-  detailLabel: { fontSize: 14, color: "#555" },
-  detailValue: { fontSize: 14, color: "#555" },
-
-  // --- FOOTER ---
-  footer: {
-    backgroundColor: "#fff",
-    padding: 14,
-    borderTopWidth: 0.5,
-    borderColor: "#eee",
-  },
-  cancelButton: {
-    flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#E53935",
-    borderRadius: 8,
-    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderColor: "#eee",
+    paddingVertical: 8,
   },
-  cancelText: { color: "#fff", fontWeight: "600", fontSize: 16, marginLeft: 6 },
-  receiveButton: {
-  backgroundColor: "#4CAF50",
-  borderRadius: 50,
-  paddingVertical: 14,
-  alignItems: "center",
-  marginHorizontal: 16,
-  marginBottom: 10,
-},
-receiveText: {
-  color: "#fff",
-  fontWeight: "bold",
-  fontSize: 16,
-},
-
+  itemImage: { width: 60, height: 60, borderRadius: 8 },
+  itemName: { fontWeight: "600", color: "#333" },
+  itemOptions: { color: "#555", fontSize: 12 },
+  itemNote: { color: "#03AF14", fontSize: 12, fontStyle: "italic", marginTop: 2 },
+  itemQty: { fontSize: 12, color: "#777" },
+  itemPrice: { fontWeight: "bold", color: "#E53935" },
+  totalBox: { marginTop: 8 },
+  totalRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: 2 },
+  totalLabel: { color: "#444" },
+  totalValueSmall: { color: "#333", fontWeight: "500" },
+  totalValue: { color: "#E53935", fontWeight: "bold", fontSize: 15 },
+  detailCard: { margin: 12, padding: 12, backgroundColor: "#fff", borderRadius: 10, elevation: 1 },
+  detailRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: 4 },
+  detailLabel: { color: "#444" },
+  detailValue: { fontWeight: "500" },
+  footer: { padding: 16, borderTopWidth: 1, borderColor: "#eee" },
+  cancelButton: { backgroundColor: "#E53935", padding: 14, borderRadius: 8, alignItems: "center" },
+  cancelText: { color: "#fff", fontWeight: "bold" },
+  receiveButton: { backgroundColor: "#4CAF50", padding: 14, borderRadius: 8, alignItems: "center" },
+  receiveText: { color: "#fff", fontWeight: "bold" },
 });
-export default OrderDetailScreen;

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  TextInput,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useRoute } from "@react-navigation/native";
@@ -35,7 +36,14 @@ const CheckoutScreen: React.FC = () => {
     const { cart, address, clearCart, setCart } = useCart();
     const { user } = useAuth();
     const { show } = useMessageBox();
+    const [receiverName, setReceiverName] = useState(user?.firstName || "");
+    const [receiverPhone, setReceiverPhone] = useState(user?.phone || "");
+    const [receiverAddress, setReceiverAddress] = useState(
+      address || "284 An Dương Vương, Phường 3, Quận 5, TP. Hồ Chí Minh"
+);
+
     const route = useRoute();
+
     const { selectedFoods } = route.params as { selectedFoods: FoodOrderItem[] };
     console.table(
       selectedFoods.map((item, index) => ({
@@ -49,8 +57,6 @@ const CheckoutScreen: React.FC = () => {
         "Ghi chú": item.note?.trim() || "-",
       }))
 );
-
-
 
     const navigation = useNavigation<any>();
     
@@ -80,7 +86,10 @@ const subtotal = selectedFoods.reduce((sum, item) => {
       show("Giỏ hàng đang trống!", "info");      
     return;
     }
-
+    if (!receiverName.trim() || !receiverPhone.trim() || !receiverAddress.trim()) {
+      show("Vui lòng nhập đầy đủ thông tin người nhận!", "info");
+      return;
+    }
   try {
     console.log("🧾 Bắt đầu tạo đơn hàng...");
 
@@ -88,79 +97,53 @@ const subtotal = selectedFoods.reduce((sum, item) => {
     const normalizedCart = selectedFoods.map(normalizeOrderItem);
 
     const orderData = {
-      userId: user?.phone || "guest",
-      address: address || "Không có địa chỉ",
-      items: normalizedCart,
-      shippingMethod: shippingMethod || "motorbike",
-      paymentMethod: paymentMethod || "cash",
-      subtotal: subtotal || 0,
-      shippingFee: shippingFee || 0,
-      total: total || 0,
-      status: "processing", // hoặc "Chờ xác nhận"
-      createdAt: serverTimestamp(),
-    };
+    userId: user?.phone || "guest",
+    receiverName: receiverName.trim(),
+    receiverPhone: receiverPhone.trim(),
+    receiverAddress: receiverAddress.trim(),
+    items: normalizedCart,
+    shippingMethod: shippingMethod || "motorbike",
+    paymentMethod: paymentMethod || "cash",
+    subtotal: subtotal || 0,
+    shippingFee: shippingFee || 0,
+    total: total || 0,
+    status: "processing",
+    createdAt: serverTimestamp(),
+  };
 
-  console.log("📦 DỮ LIỆU ĐƠN HÀNG");
-  console.table([
-    {
-      "Người dùng": orderData.userId,
-      "Địa chỉ": orderData.address,
-      "Phương thức giao hàng": orderData.shippingMethod,
-      "Thanh toán": orderData.paymentMethod,
-      "Tạm tính (₫)": orderData.subtotal.toLocaleString("vi-VN"),
-      "Phí ship (₫)": orderData.shippingFee.toLocaleString("vi-VN"),
-      "Tổng cộng (₫)": orderData.total.toLocaleString("vi-VN"),
-      "Trạng thái": orderData.status,
-    },
-  ]);
+    // 🧭 Phân nhánh xử lý theo phương thức thanh toán
+    if (paymentMethod === "cash") {
+      // 💵 Thanh toán tiền mặt → tạo đơn ngay
+      await addDoc(collection(db, "orders"), {
+        ...orderData,
+        status: "processing",
+      });
 
-  console.log("📋 CHI TIẾT MÓN HÀNG");
-  console.table(
-    orderData.items.map((item, index) => ({
-      "#": index + 1,
-      "Tên món": item.name,
-      "Số lượng": item.quantity,
-      "Kích cỡ": item.selectedSize?.label || "-",
-      "Đế bánh": item.selectedBase?.label || "-",
-      "Topping": item.selectedTopping?.label || "-",
-      "Add-on": item.selectedAddOn?.label || "-",
-      "Ghi chú": item.note?.trim() || "-",
-    }))
-);
-
-    // ✅ Thêm kiểm tra instance
-    if (!db) {
-      throw new Error("Firestore chưa được khởi tạo!");
+      show("Đặt hàng thành công! Đơn của bạn đang chờ xác nhận.", "success");
+      setCart((prev) =>
+        prev.filter(
+          (item) =>
+            !selectedFoods.some(
+              (sf) =>
+                sf.id === item.id &&
+                sf.selectedSize?.label === item.selectedSize?.label &&
+                sf.selectedBase?.label === item.selectedBase?.label &&
+                sf.selectedTopping?.label === item.selectedTopping?.label &&
+                sf.selectedAddOn?.label === item.selectedAddOn?.label &&
+                (sf.note?.trim() || "") === (item.note?.trim() || "")
+            )
+        )
+      );
+      navigation.navigate("MainTabs", { screen: "Đơn hàng" });
+    } else if (paymentMethod === "bank") {
+      // 💳 Thanh toán chuyển khoản → điều hướng sang trang giả lập
+      navigation.navigate("Transfer", {
+        orderData, // truyền dữ liệu đơn để xử lý tiếp
+      });
     }
-
-    // ✅ Gọi addDoc và chờ hoàn tất
-    const docRef = await addDoc(collection(db, "orders"), orderData);
-
-    console.log("✅ Đơn hàng đã tạo, ID:", docRef.id);
-
-    // ✅ Nếu không có lỗi thì mới alert thành công
-    show("Đặt đơn thành công!", "success");
-    // ✅ Cập nhật lại giỏ hàng
-    setCart((prev) =>
-      prev.filter(
-        (item) =>
-          !selectedFoods.some(
-            (sf) =>
-              sf.id === item.id &&
-              sf.selectedSize?.label === item.selectedSize?.label &&
-              sf.selectedBase?.label === item.selectedBase?.label &&
-              sf.selectedTopping?.label === item.selectedTopping?.label &&
-              sf.selectedAddOn?.label === item.selectedAddOn?.label &&
-              (sf.note?.trim() || "") === (item.note?.trim() || "")
-          )
-  )
-);
-
-
-navigation.navigate("MainTabs", { screen: "Đơn hàng" });
   } catch (error: any) {
-    console.error("❌ Lỗi khi lưu đơn hàng:", error);
-    show("Không thể tạo đơn hàng!", "error");   
+    console.error("❌ Lỗi khi tạo đơn hàng:", error);
+    show("Không thể tạo đơn hàng!", "error");
   }
 };
 
@@ -171,21 +154,44 @@ navigation.navigate("MainTabs", { screen: "Đơn hàng" });
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: 150 }}
       >
-        {/* 🏠 Địa chỉ */}
-        <View style={styles.addressCard}>
-          <Ionicons name="location-outline" size={20} color="#F58220" />
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.addressName}>
-              {user?.firstName || "Khách hàng"}
-            </Text>
-            <Text style={styles.addressText}>
-              {address || "284 An Dương Vương, P.3, Q.5, TP.HCM"}
-            </Text>
-          </View>
-          <TouchableOpacity>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
-        </View>
+    {/* 🏠 Thông tin người nhận */}
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Thông tin người nhận</Text>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Họ và tên</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Nhập họ và tên người nhận"
+          value={receiverName}
+          onChangeText={setReceiverName}
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Số điện thoại</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Nhập số điện thoại người nhận"
+          keyboardType="phone-pad"
+          value={receiverPhone}
+          onChangeText={setReceiverPhone}
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Địa chỉ nhận hàng</Text>
+        <TextInput
+          style={[styles.input, { height: 60 }]}
+          placeholder="Nhập địa chỉ nhận hàng"
+          multiline
+          value={receiverAddress}
+          onChangeText={setReceiverAddress}
+        />
+      </View>
+    </View>
+
+
 
         {/* 🛍 Danh sách món */}
         <Text style={styles.sectionTitle}>Danh sách món</Text>
@@ -344,25 +350,33 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F6F6F6" },
   scrollView: { paddingHorizontal: 16, paddingTop: 20 },
 
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginTop: 20,
-    marginBottom: 8,
-    color: "#000",
-  },
-
-  addressCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-  },
-  addressName: { fontSize: 15, fontWeight: "bold" },
-  addressText: { color: "#444", fontSize: 14 },
-
+  section: {
+  backgroundColor: "#fff",
+  borderRadius: 10,
+  padding: 14,
+  marginBottom: 16,
+  shadowColor: "#000",
+  shadowOpacity: 0.05,
+  shadowRadius: 3,
+  elevation: 2,
+},
+sectionTitle: {
+  fontSize: 16,
+  fontWeight: "bold",
+  color: "#333",
+  marginBottom: 8,
+},
+inputGroup: { marginBottom: 10 },
+label: { fontSize: 14, color: "#555", marginBottom: 4 },
+input: {
+  borderWidth: 1,
+  borderColor: "#ccc",
+  borderRadius: 8,
+  paddingHorizontal: 10,
+  paddingVertical: 8,
+  fontSize: 14,
+  backgroundColor: "#fafafa",
+},
   cartCard: {
     flexDirection: "row",
     backgroundColor: "#fff",
