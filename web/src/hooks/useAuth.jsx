@@ -8,7 +8,6 @@ import {
 } from "react";
 import * as authService from "../services/authClient";
 
-// hook “thật”
 function useAuthInner() {
   const [user, setUser] = useState(() => {
     const raw = localStorage.getItem("user");
@@ -17,26 +16,23 @@ function useAuthInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // load lại từ localStorage khi F5
   useEffect(() => {
     if (!user) {
       const raw = localStorage.getItem("user");
       if (raw) {
         try {
           setUser(JSON.parse(raw));
-        } catch {
-          // bỏ qua
-        }
+        } catch {}
       }
     }
   }, [user]);
 
-  const login = useCallback(async (phone, password) => {
+  // 🟢 login(identifier, password)
+  const login = useCallback(async (identifier, password) => {
     setLoading(true);
     setError("");
     try {
-      const { user } = await authService.login(phone, password);
-      // 🔥 đây là chỗ bé đã có rồi
+      const { user } = await authService.login(identifier, password);
       setUser(user);
       return user;
     } catch (err) {
@@ -77,9 +73,6 @@ function useAuthInner() {
   };
 }
 
-// ----------------------
-// 🟣 Context
-// ----------------------
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -90,7 +83,6 @@ export function AuthProvider({ children }) {
 export function useAuthContext() {
   const ctx = useContext(AuthContext);
   if (!ctx) {
-    // nếu component chưa được bọc bởi AuthProvider
     throw new Error("useAuthContext must be used inside <AuthProvider />");
   }
   return ctx;

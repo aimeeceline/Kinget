@@ -7,7 +7,10 @@ import {
   onSnapshot,
   addDoc,
   serverTimestamp,
+  doc,
+  getDoc,
 } from "firebase/firestore";
+import { removeCartItem } from "../services/cartClient";
 import "./css/Checkout.css";
 
 export default function CheckoutPage() {
@@ -29,11 +32,17 @@ export default function CheckoutPage() {
   // ===== 3. state trong trang =====
   const [cartItems, setCartItems] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
+<<<<<<< Updated upstream
   const [shippingMethod, setShippingMethod] = useState("bike"); // bike | drone (UI)
   const [paymentMethod, setPaymentMethod] = useState("cod"); // cod | bank (UI)
   const [address, setAddress] = useState(
     ""
   );
+=======
+  const [shippingMethod, setShippingMethod] = useState("bike");
+  const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [address, setAddress] = useState("");
+>>>>>>> Stashed changes
   const [receiverName, setReceiverName] = useState(
     currentUser?.firstName || "Khách"
   );
@@ -43,6 +52,51 @@ export default function CheckoutPage() {
   const [deliveryLat, setDeliveryLat] = useState(null);
   const [deliveryLng, setDeliveryLng] = useState(null);
 
+<<<<<<< Updated upstream
+=======
+  // chi nhánh đã chọn
+  const [branchId, setBranchId] = useState(null);
+  // toạ độ chi nhánh từ Firestore
+  const [branchPos, setBranchPos] = useState(null);
+
+  // ===== load sẵn từ localStorage =====
+  useEffect(() => {
+    const savedAddr = localStorage.getItem("deliveryAddress");
+    const savedLat = localStorage.getItem("deliveryLat");
+    const savedLng = localStorage.getItem("deliveryLng");
+    const savedBranch = localStorage.getItem("selectedBranchId");
+
+    if (savedAddr) setAddress(savedAddr);
+    if (savedLat && savedLng) {
+      setDeliveryLat(Number(savedLat));
+      setDeliveryLng(Number(savedLng));
+    }
+    if (savedBranch) setBranchId(savedBranch);
+  }, []);
+
+  // ===== nếu có branchId thì lấy tọa độ chi nhánh từ Firestore =====
+  useEffect(() => {
+    async function fetchBranch() {
+      if (!branchId) {
+        setBranchPos(null);
+        return;
+      }
+      const ref = doc(db, "branches", branchId);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const data = snap.data();
+        if (typeof data.lat === "number" && typeof data.lng === "number") {
+          setBranchPos({ lat: data.lat, lng: data.lng });
+        } else {
+          setBranchPos(null);
+        }
+      } else {
+        setBranchPos(null);
+      }
+    }
+    fetchBranch();
+  }, [branchId]);
+>>>>>>> Stashed changes
 
   // ===== 4. load giỏ theo realtime =====
   useEffect(() => {
@@ -73,9 +127,10 @@ export default function CheckoutPage() {
   }, [userId, navigate, cameFromCart, selectedFromCart]);
 
   // ===== 5. tính toán =====
-  const selectedItems = useMemo(() => {
-    return cartItems.filter((it) => selectedIds.includes(it.cartId));
-  }, [cartItems, selectedIds]);
+  const selectedItems = useMemo(
+    () => cartItems.filter((it) => selectedIds.includes(it.cartId)),
+    [cartItems, selectedIds]
+  );
 
   const subtotal = selectedItems.reduce((sum, it) => {
     const unit = typeof it.price === "number" ? it.price : 0;
@@ -92,15 +147,23 @@ export default function CheckoutPage() {
 
   const grandTotal = subtotal + shippingFee;
 
-  // ===== helper: normalize item giống app =====
+  // ===== helper: normalize item =====
   const normalizeOrderItem = (item) => {
     return {
-      ...item,
+      cartId: item.cartId,
+      foodId: item.foodId || item.id,
+      name: item.name,
+      image: item.image || "",
+      category: item.category || "",
+      quantity: item.quantity || 1,
+      price: item.price || 0,
       selectedSize: item.selectedSize ?? null,
       selectedBase: item.selectedBase ?? null,
       selectedTopping: item.selectedTopping ?? null,
       selectedAddOn: item.selectedAddOn ?? null,
       note: item.note ?? null,
+      signature: item.signature || "",
+      branchId: item.branchId || null,
     };
   };
 
@@ -126,32 +189,90 @@ export default function CheckoutPage() {
       alert("Vui lòng nhập địa chỉ giao hàng.");
       return;
     }
+    if (!branchId) {
+      alert("Bạn chưa chọn chi nhánh.");
+      return;
+    }
 
     try {
+<<<<<<< Updated upstream
       // map giá trị UI → giá trị app
       const shippingForDb = shippingMethod === "bike" ? "motorbike" : "drone";
       const paymentForDb = paymentMethod === "cod" ? "cash" : "bank";
+=======
+      const shippingForDb =
+        shippingMethod === "bike" ? "motorbike" : "drone";
+      const paymentForDb =
+        paymentMethod === "cod" ? "cash" : "bank";
+>>>>>>> Stashed changes
 
       const normalizedItems = selectedItems.map((it) => normalizeOrderItem(it));
 
+<<<<<<< Updated upstream
+=======
+      // chuẩn bị toạ độ giao hàng
+      let lat = deliveryLat;
+      let lng = deliveryLng;
+
+      if ((!lat || !lng) && address.trim()) {
+        const resp = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+            address.trim()
+          )}`
+        );
+        const data = await resp.json();
+        if (Array.isArray(data) && data.length > 0) {
+          lat = parseFloat(data[0].lat);
+          lng = parseFloat(data[0].lon);
+        }
+      }
+
+      const deliveryObj = lat && lng ? { lat, lng } : null;
+
+      // ⭐ tạo đơn
+>>>>>>> Stashed changes
       await addDoc(collection(db, "orders"), {
         userId: orderUserId,
         receiverName: receiverName.trim(),
         receiverPhone: receiverPhone.trim(),
+<<<<<<< Updated upstream
         address: address.trim(),           // 👈 địa chỉ chữ (từ Nominatim hoặc user gõ)
         delivery:
           deliveryLat && deliveryLng
             ? { lat: deliveryLat, lng: deliveryLng }
             : null,                        // 👈 để màn tracking vẽ map
+=======
+        orderAddress: address.trim(),
+
+        // điểm giao khách
+        delivery: deliveryObj,
+
+        // chi nhánh (lấy từ localStorage)
+        branchId: branchId,
+
+        // điểm xuất phát / vị trí tài xế ban đầu = chi nhánh trong Firestore
+        origin: branchPos
+          ? { lat: branchPos.lat, lng: branchPos.lng }
+          : null,
+        currentPos: branchPos
+          ? { lat: branchPos.lat, lng: branchPos.lng }
+          : null,
+
+>>>>>>> Stashed changes
         items: normalizedItems,
         shippingMethod: shippingForDb,
         paymentMethod: paymentForDb,
-        subtotal,
         shippingFee,
+        subtotal,
         total: grandTotal,
-        status: "processing",
+        status: "preparing",
         createdAt: serverTimestamp(),
       });
+
+      // xoá các item đã đặt khỏi giỏ
+      await Promise.all(
+        selectedItems.map((it) => removeCartItem(userId, it.cartId))
+      );
 
       alert("Đặt hàng thành công!");
       navigate("/"); // hoặc /orders
@@ -284,14 +405,11 @@ export default function CheckoutPage() {
                   {it.selectedTopping && (
                     <span>Topping: {it.selectedTopping.label}</span>
                   )}
-                  {Array.isArray(it.selectedToppings) &&
-                    it.selectedToppings.length > 0 && (
-                      <span>
-                        Topping:{" "}
-                        {it.selectedToppings.map((t) => t.label).join(", ")}
-                      </span>
-                    )}
+                  {it.selectedAddOn && (
+                    <span>Thêm: {it.selectedAddOn.label}</span>
+                  )}
                   {it.note && <span>Ghi chú: {it.note}</span>}
+                  {it.branchId && <span>CN: {it.branchId}</span>}
                 </div>
               </div>
               <div className="ck-item-price">

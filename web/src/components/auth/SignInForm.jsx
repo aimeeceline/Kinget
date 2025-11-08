@@ -1,38 +1,44 @@
+// src/pages/LoginPage.jsx (hoặc component form của bạn)
 import { useState } from "react";
 import { useAuthContext } from "../../hooks/useAuth.jsx";
+import { useNavigate } from "react-router-dom";
 
-export default function SignInForm({ onSuccess }) {
-  const { login, loading, error } = useAuthContext();
-  const [phone, setPhone] = useState("");
-  const [pass, setPass] = useState("");
+export default function LoginPage() {
+  const { login, error, loading } = useAuthContext();
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const navigate = useNavigate();
 
-  const submit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const u = await login(phone.trim(), pass);
-      onSuccess?.(u);
-    } catch (_) {}
+      await login(identifier.trim(), password);
+      // 👇 bắt buộc để popup biết là phải hiện
+      localStorage.setItem("needsAddressSetup", "1");
+      navigate("/"); // về trang chủ
+    } catch (err) {
+      // đã có error trong context
+    }
   };
 
   return (
-    <form onSubmit={submit}>
-      <h1>Đăng nhập</h1>
+    <form onSubmit={handleSubmit}>
       <input
-        value={phone}
-        onChange={(e) => setPhone(e.target.value)}
-        placeholder="Số điện thoại"
+        value={identifier}
+        onChange={(e) => setIdentifier(e.target.value)}
+        placeholder="Email hoặc số điện thoại"
         required
       />
       <input
-        value={pass}
-        onChange={(e) => setPass(e.target.value)}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
         type="password"
         placeholder="Mật khẩu"
         required
       />
-      {error && <p className="auth-error">{error}</p>}
+      {error && <p>{error}</p>}
       <button type="submit" disabled={loading}>
-        {loading ? "Đang đăng nhập..." : "Đăng nhập"}
+        Đăng nhập
       </button>
     </form>
   );

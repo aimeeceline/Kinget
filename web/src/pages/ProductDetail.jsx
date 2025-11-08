@@ -8,11 +8,9 @@ import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 
 import QuantityInput from "../components/QuantityInput";
 import ProductList from "../components/ProductList";
-import { addToCart } from "../services/cartClient"; // 👈 dùng service chung
+import { addToCart } from "../services/cartClient";
 
 // ===== helpers =====
-
-// lấy phần tử đầu tiên nếu có
 const pickFirst = (arr) =>
   Array.isArray(arr) && arr.length > 0 ? arr[0] : null;
 
@@ -42,7 +40,6 @@ function calcCurrentPrice(product, selectedSize, selectedExtra, selectedBase) {
   return price;
 }
 
-// random array
 function shuffle(arr) {
   return [...arr].sort(() => 0.5 - Math.random());
 }
@@ -57,7 +54,7 @@ export default function ProductDetailPage() {
   // selections
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedBase, setSelectedBase] = useState(null);
-  const [selectedExtra, setSelectedExtra] = useState(null); // có thể là topping hoặc addOn
+  const [selectedExtra, setSelectedExtra] = useState(null);
   const [note, setNote] = useState("");
   const [qty, setQty] = useState(1);
 
@@ -89,7 +86,6 @@ export default function ProductDetailPage() {
         }
         const data = { id: snap.id, ...snap.data() };
 
-        // set selections mặc định
         const defSize = pickFirst(data.sizes);
         const defBase = pickFirst(data.bases);
 
@@ -126,9 +122,7 @@ export default function ProductDetailPage() {
     };
   }, [id]);
 
-  // ===== phân biệt topping vs addOn =====
-  // app: nếu food có toppings → chọn topping
-  //      nếu food có addOns → chọn addOn
+  // phân biệt topping vs addOn
   const extraMeta = useMemo(() => {
     if (!product) return { type: "none", list: [] };
     if (Array.isArray(product.toppings) && product.toppings.length > 0) {
@@ -140,7 +134,6 @@ export default function ProductDetailPage() {
     return { type: "none", list: [] };
   }, [product]);
 
-  // ===== giá 1 đơn vị =====
   const unitPrice = product
     ? calcCurrentPrice(product, selectedSize, selectedExtra, selectedBase)
     : 0;
@@ -155,7 +148,17 @@ export default function ProductDetailPage() {
       return;
     }
 
-    // nếu món này thực sự là addOn (burger) thì phải gửi selectedAddOn
+    // lấy chi nhánh hiện tại
+    const branchId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("selectedBranchId")
+        : null;
+
+    if (!branchId) {
+      alert("Bạn chưa chọn chi nhánh. Vui lòng chọn chi nhánh trước.");
+      return;
+    }
+
     const isAddOn = extraMeta.type === "addon";
 
     try {
@@ -166,6 +169,7 @@ export default function ProductDetailPage() {
         selectedAddOn: isAddOn ? selectedExtra || null : null,
         note: note || "",
         quantity: qty,
+        branchId, // 👈 thêm vào đây
       });
 
       if (result?.merged) {
@@ -189,9 +193,7 @@ export default function ProductDetailPage() {
 
   return (
     <div className="pd-page">
-      {/* MAIN */}
       <div className="pd-content">
-        {/* ảnh */}
         <div className="pd-left">
           <img
             src={
@@ -207,7 +209,6 @@ export default function ProductDetailPage() {
           />
         </div>
 
-        {/* info */}
         <div className="pd-right">
           <h1>{product.name}</h1>
           <p className="pd-desc">

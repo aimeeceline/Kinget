@@ -1,6 +1,6 @@
 // src/features/auth/components/SignUpForm.jsx
 import { useState } from "react";
-import { useAuthContext } from "../../hooks/useAuth"; // 👈 dùng context
+import { useAuthContext } from "../../hooks/useAuth";
 
 export default function SignUpForm({ onSuccess }) {
   const { register, loading, error } = useAuthContext();
@@ -13,19 +13,15 @@ export default function SignUpForm({ onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      const u = await register({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        password: pass,
-      });
-      alert("🎉 Đăng ký thành công! Vui lòng đăng nhập để tiếp tục.");
-      onSuccess?.(u); // AuthPage sẽ setIsSignUp(false)
-    } catch (err) {
-      alert("Đăng ký thất bại: " + (err.message || ""));
-    }
+    await register({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      password: pass,
+    });
+    alert("🎉 Đăng ký thành công! Vui lòng đăng nhập.");
+    onSuccess?.();
   };
 
   return (
@@ -46,16 +42,16 @@ export default function SignUpForm({ onSuccess }) {
       />
       <input
         type="email"
-        placeholder="Email"
+        placeholder="Email (bắt buộc để đăng nhập)"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        required
       />
       <input
         type="text"
-        placeholder="Số điện thoại"
+        placeholder="Số điện thoại (có thể nhập)"
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
-        required
       />
       <input
         type="password"
