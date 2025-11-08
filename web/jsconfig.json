@@ -3,6 +3,11 @@
     "baseUrl": ".",
     "paths": {
       "@shared/*": ["../shared/*"]
-    }
-  }
+    },
+    "moduleResolution": "bundler",   // giúp VSCode/TS resolve theo kiểu bundler
+    "target": "ES2020",
+    "jsx": "react-jsx",
+    "checkJs": false
+  },
+  "include": ["src", "../shared"]     // QUAN TRỌNG: cho VSCode quét cả shared
 }

@@ -1,25 +1,10 @@
 // src/pages/Orders/OrderDetail.jsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  doc,
-  onSnapshot,
-  updateDoc,
-} from "firebase/firestore";
+import TrackingModal from "../components/TrackingModal";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "@shared/FireBase";
-
-// nếu bạn đã cài react-leaflet thì mở 3 dòng dưới
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
 import "./css/OrderDetail.css";
-
-const droneIcon = new L.Icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/3208/3208898.png",
-  iconSize: [38, 38],
-  iconAnchor: [19, 19],
-});
 
 export default function OrderDetailPage() {
   const { id } = useParams();
@@ -50,17 +35,12 @@ export default function OrderDetailPage() {
         const data = { id: snap.id, ...snap.data() };
 
         // chặn xem đơn của người khác
-        if (
-          currentUserId &&
-          data.userId &&
-          data.userId !== currentUserId
-        ) {
+        if (currentUserId && data.userId && data.userId !== currentUserId) {
           setForbidden(true);
           setLoading(false);
           return;
         }
 
-        // chuẩn hoá trạng thái theo app
         const normalized = normalizeStatus(data.status);
         setOrder({ ...data, status: normalized });
         setLoading(false);
@@ -94,7 +74,7 @@ export default function OrderDetailPage() {
     }
   };
 
-  // ===== 3. render =====
+  // ===== 3. render điều kiện =====
   if (loading) {
     return <div className="odetail-page">Đang tải đơn hàng...</div>;
   }
@@ -121,6 +101,7 @@ export default function OrderDetailPage() {
     );
   }
 
+  // ===== 4. tính toán =====
   const items = Array.isArray(order.items) ? order.items : [];
   const subtotal = order.subtotal || 0;
   const shippingFee = order.shippingFee || 0;
@@ -128,22 +109,42 @@ export default function OrderDetailPage() {
 
   const canCancel =
     order.status === "processing" || order.status === "preparing";
-  const canTrack = order.status === "delivering";
+  const canTrack = order.status === "shipping";
+
+  // hiện nút theo dõi ngay trong box địa chỉ
+  const canTrackHere =
+    order.status === "shipping" &&
+      order.delivery &&
+    order.delivery.lat &&
+    order.delivery.lng;
 
   return (
     <div className="odetail-page">
-      {/* timeline 4 trạng thái hoặc box hủy */}
+      {/* timeline */}
       <OrderTimeline status={order.status} createdAt={order.createdAt} />
 
-      {/* Địa chỉ */}
+      {/* Địa chỉ nhận hàng */}
       <div className="odetail-box">
         <h3 className="odetail-title">Địa chỉ nhận hàng</h3>
-        <div className="odetail-address-name">
-          {order.receiverName || currentUser?.firstName || "Khách"}
-          {order.receiverPhone ? ` (${order.receiverPhone})` : ""}
-        </div>
-        <div className="odetail-address-detail">
-          {order.address || "—"}
+        <div className="odetail-address-top">
+          <div>
+            <div className="odetail-address-name">
+              {order.receiverName || currentUser?.firstName || "Khách"}
+              {order.receiverPhone ? ` (${order.receiverPhone})` : ""}
+            </div>
+            <div className="odetail-address-detail">
+              {order.address || "—"}
+            </div>
+          </div>
+
+          {canTrackHere && (
+            <button
+              className="odetail-track-inline"
+              onClick={() => setShowTracking(true)}
+            >
+              Theo dõi drone
+            </button>
+          )}
         </div>
       </div>
 
@@ -154,10 +155,7 @@ export default function OrderDetailPage() {
           {items.map((it, idx) => (
             <div key={idx} className="odetail-item">
               <img
-                src={
-                  it.image ||
-                  "https://via.placeholder.com/60?text=Food"
-                }
+                src={it.image || "https://via.placeholder.com/60?text=Food"}
                 alt={it.name}
               />
               <div className="odetail-item-info">
@@ -181,9 +179,8 @@ export default function OrderDetailPage() {
               <div className="odetail-item-qty">x{it.quantity || 1}</div>
               <div className="odetail-item-price">
                 {(
-                  (it.price ||
-                    it.selectedSize?.price ||
-                    0) * (it.quantity || 1)
+                  (it.price || it.selectedSize?.price || 0) *
+                  (it.quantity || 1)
                 ).toLocaleString("vi-VN")}
                 đ
               </div>
@@ -242,7 +239,7 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
-      {/* Actions: hủy / theo dõi */}
+      {/* Actions */}
       <OrderActions
         canCancel={canCancel}
         canTrack={canTrack}
@@ -262,9 +259,7 @@ export default function OrderDetailPage() {
 }
 
 /* ===== helpers ===== */
-
 function normalizeStatus(status) {
-  // web & app dùng bộ này: processing, preparing, delivering, delivered, completed, cancelled
   if (!status) return "processing";
   return status;
 }
@@ -282,7 +277,6 @@ function formatDateTime(ts) {
 
 /* ===== timeline 4 trạng thái ===== */
 function OrderTimeline({ status = "processing", createdAt }) {
-  // nếu đã hủy thì show box riêng
   if (status === "cancelled") {
     return (
       <div className="odetail-box odetail-cancelled-box">
@@ -297,32 +291,26 @@ function OrderTimeline({ status = "processing", createdAt }) {
     );
   }
 
-  // map trạng thái → step
   let currentStep = 0;
   switch (status) {
     case "processing":
-      currentStep = 0; // Chờ xác nhận
+      currentStep = 0;
       break;
     case "preparing":
-      currentStep = 1; // Đang chuẩn bị
+      currentStep = 1;
       break;
-    case "delivering":
-      currentStep = 2; // Đang giao
+    case "shipping":
+      currentStep = 2;
       break;
     case "delivered":
     case "completed":
-      currentStep = 3; // Thành công
+      currentStep = 3;
       break;
     default:
       currentStep = 0;
   }
 
-  const steps = [
-    "Chờ xác nhận",
-    "Đang chuẩn bị",
-    "Đang giao",
-    "Thành công",
-  ];
+  const steps = ["Chờ xác nhận", "Đang chuẩn bị", "Đang giao", "Thành công"];
 
   return (
     <div className="odetail-timeline odetail-box">
@@ -336,9 +324,7 @@ function OrderTimeline({ status = "processing", createdAt }) {
             </div>
             {!isLast && (
               <div
-                className={`odt-line ${
-                  idx < currentStep ? "is-active" : ""
-                }`}
+                className={`odt-line ${idx < currentStep ? "is-active" : ""}`}
               />
             )}
             <div className="odt-label">{label}</div>
@@ -375,41 +361,4 @@ function OrderActions({ canCancel, canTrack, onCancel, onTrack }) {
   }
 
   return null;
-}
-
-/* ===== modal tracking ===== */
-function TrackingModal({ order, onClose }) {
-  const hasDelivery =
-    order?.delivery && order.delivery.lat && order.delivery.lng;
-
-  const center = hasDelivery
-    ? [order.delivery.lat, order.delivery.lng]
-    : [10.762622, 106.660172]; // fallback HCM
-
-  return (
-    <div className="odetail-modal-backdrop">
-      <div className="odetail-modal">
-        <div className="odetail-modal-header">
-          <h3>Theo dõi đơn hàng</h3>
-          <button onClick={onClose}>✕</button>
-        </div>
-        <div className="odetail-modal-body">
-          {hasDelivery ? (
-            <MapContainer
-              center={center}
-              zoom={16}
-              style={{ height: "360px", width: "100%" }}
-            >
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <Marker position={center} icon={droneIcon}>
-                <Popup>Điểm giao</Popup>
-              </Marker>
-            </MapContainer>
-          ) : (
-            <p>Đơn này chưa có vị trí giao để theo dõi.</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 }

@@ -11,6 +11,13 @@ import CartPage from "../pages/Cart";
 import CheckoutPage from "../pages/Checkout";
 import OrdersPage from "../pages/Orders";
 import OrderDetailPage from "../pages/OrderDetail";
+
+// === RESTAURANT pages ===
+import RestaurantLayout from "../layouts/RestaurantLayout.jsx";
+import RestaurantDashboard from "../pages/restaurant/Dashboard.jsx";
+import RestaurantOrders from "../pages/restaurant/Orders.jsx";
+import RestaurantMenu from "../pages/restaurant/Menu.jsx";
+
 //Admin pages
 //import AdminDashboard from "../pages/admin/Dashboard";
 //import AdminOrders from "../pages/admin/Orders";
@@ -32,7 +39,16 @@ export const router = createBrowserRouter([
       // ... những trang user khác
     ],
   },
-
+ // ===== RESTAURANT =====
+  {
+  path: "/restaurant",
+  element: <RestaurantLayout />,
+  children: [
+    { index: true, element: <RestaurantDashboard /> },
+    { path: "orders", element: <RestaurantOrders /> },
+    { path: "menu", element: <RestaurantMenu /> },
+  ],
+},
 //   // ===== ADMIN =====
 //   {
 //     path: "/admin",

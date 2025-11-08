@@ -10,6 +10,12 @@ import {
 } from "firebase/firestore";
 import "./css/Checkout.css";
 
+// ⭐ toạ độ nhà hàng / kho giao hàng (ở Bùi Viện)
+const RESTAURANT_LOCATION = {
+  lat: 10.7672,
+  lng: 106.6936,
+};
+
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,18 +37,17 @@ export default function CheckoutPage() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [shippingMethod, setShippingMethod] = useState("bike"); // bike | drone (UI)
   const [paymentMethod, setPaymentMethod] = useState("cod"); // cod | bank (UI)
-  const [address, setAddress] = useState(
-    ""
-  );
+  const [address, setAddress] = useState("");
   const [receiverName, setReceiverName] = useState(
     currentUser?.firstName || "Khách"
   );
   const [receiverPhone, setReceiverPhone] = useState(
     currentUser?.phone || ""
   );
+
+  // toạ độ giao cho khách
   const [deliveryLat, setDeliveryLat] = useState(null);
   const [deliveryLng, setDeliveryLng] = useState(null);
-
 
   // ===== 4. load giỏ theo realtime =====
   useEffect(() => {
@@ -65,6 +70,7 @@ export default function CheckoutPage() {
         );
         setSelectedIds(valid);
       } else {
+        // mặc định chọn hết
         setSelectedIds(data.map((d) => d.cartId));
       }
     });
@@ -87,8 +93,8 @@ export default function CheckoutPage() {
     selectedItems.length === 0
       ? 0
       : shippingMethod === "drone"
-        ? 20000
-        : 10000;
+      ? 20000
+      : 10000;
 
   const grandTotal = subtotal + shippingFee;
 
@@ -128,21 +134,63 @@ export default function CheckoutPage() {
     }
 
     try {
-      // map giá trị UI → giá trị app
-      const shippingForDb = shippingMethod === "bike" ? "motorbike" : "drone";
-      const paymentForDb = paymentMethod === "cod" ? "cash" : "bank";
+      // map giá trị UI → giá trị lưu
+      const shippingForDb =
+        shippingMethod === "bike" ? "motorbike" : "drone";
+      const paymentForDb =
+        paymentMethod === "cod" ? "cash" : "bank";
 
-      const normalizedItems = selectedItems.map((it) => normalizeOrderItem(it));
+      const normalizedItems = selectedItems.map((it) =>
+        normalizeOrderItem(it)
+      );
 
+      // ===== chuẩn bị toạ độ giao hàng =====
+      let lat = deliveryLat;
+      let lng = deliveryLng;
+
+      // nếu user không bấm "Lấy vị trí" mà chỉ nhập địa chỉ
+      // thì thử geocode để lấy lat/lng
+      if ((!lat || !lng) && address.trim()) {
+        const resp = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+            address.trim()
+          )}`
+        );
+        const data = await resp.json();
+        if (Array.isArray(data) && data.length > 0) {
+          lat = parseFloat(data[0].lat);
+          lng = parseFloat(data[0].lon);
+        }
+      }
+
+      // gói thành object (có thể null)
+      const deliveryObj =
+        lat && lng
+          ? { lat, lng }
+          : null;
+
+      // ⭐ tạo đơn
       await addDoc(collection(db, "orders"), {
         userId: orderUserId,
         receiverName: receiverName.trim(),
         receiverPhone: receiverPhone.trim(),
-        address: address.trim(),           // 👈 địa chỉ chữ (từ Nominatim hoặc user gõ)
-        delivery:
-          deliveryLat && deliveryLng
-            ? { lat: deliveryLat, lng: deliveryLng }
-            : null,                        // 👈 để màn tracking vẽ map
+        address: address.trim(),
+
+        // điểm giao khách
+        delivery: deliveryObj,
+
+        // ⭐ điểm xuất phát (nhà hàng)
+        origin: {
+          lat: RESTAURANT_LOCATION.lat,
+          lng: RESTAURANT_LOCATION.lng,
+        },
+
+        // ⭐ vị trí hiện tại = nhà hàng (để tracking show ngay)
+        currentPos: {
+          lat: RESTAURANT_LOCATION.lat,
+          lng: RESTAURANT_LOCATION.lng,
+        },
+
         items: normalizedItems,
         shippingMethod: shippingForDb,
         paymentMethod: paymentForDb,
@@ -154,7 +202,7 @@ export default function CheckoutPage() {
       });
 
       alert("Đặt hàng thành công!");
-      navigate("/"); // hoặc /orders
+      navigate("/orders");
     } catch (err) {
       console.error("Đặt hàng lỗi:", err);
       alert("Đặt hàng thất bại");
@@ -167,7 +215,7 @@ export default function CheckoutPage() {
     <div className="checkout-page">
       <h1>Thanh toán</h1>
 
-      {/* ĐỊA CHỈ (cho nhập) */}
+      {/* ĐỊA CHỈ */}
       <section className="ck-address">
         <div className="ck-address-left">
           <label className="ck-field">
@@ -216,21 +264,22 @@ export default function CheckoutPage() {
                   setDeliveryLng(longitude);
 
                   try {
-                    // gọi Nominatim
                     const resp = await fetch(
                       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
                     );
                     const data = await resp.json();
                     if (data && data.display_name) {
-                      // ⬅️ địa chỉ dạng chữ
                       setAddress(data.display_name);
                     } else {
-                      // fallback: vẫn để toạ độ
-                      setAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+                      setAddress(
+                        `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+                      );
                     }
                   } catch (err) {
                     console.error("Reverse geocode lỗi:", err);
-                    setAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+                    setAddress(
+                      `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+                    );
                   }
                 },
                 (err) => {

@@ -8,18 +8,29 @@ import "./css/LoginPage.css";
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
-  const { isAuthenticated } = useAuthContext(); // 👈 lấy từ context
+  const { isAuthenticated, user } = useAuthContext(); // 👈 lấy luôn user
   const navigate = useNavigate();
 
-  // Nếu đã đăng nhập, chặn vào /auth
+  // Nếu đã đăng nhập, chặn vào /auth và điều hướng theo role
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user) {
+      if (user.role === "restaurant") {
+        // nếu bạn muốn chặn pending thì check thêm user.status ở đây
+        navigate("/restaurant", { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  const handleSignInSuccess = (u) => {
+    // form sẽ gọi cái này ngay sau login
+    const usr = u || user; // phòng khi form không truyền u
+    if (usr?.role === "restaurant") {
+      navigate("/restaurant", { replace: true });
+    } else {
       navigate("/", { replace: true });
     }
-  }, [isAuthenticated, navigate]);
-
-  const handleSignInSuccess = () => {
-    navigate("/", { replace: true });
   };
 
   const handleSignUpSuccess = () => {
