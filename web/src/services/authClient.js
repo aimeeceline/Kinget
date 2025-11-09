@@ -7,23 +7,39 @@ import {
   addDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "@shared/FireBase"; // alias của bé đã khai trong vite.config.js
+import { db } from "@shared/FireBase";
 
-// 🟢 ĐĂNG NHẬP BẰNG SĐT + MẬT KHẨU
-export async function login(phone, password) {
-  const q = query(
+// 🟢 ĐĂNG NHẬP: email trước, không có thì thử phone
+export async function login(identifier, password) {
+  // thử theo email
+  let q = query(
     collection(db, "users"),
-    where("phone", "==", phone),
+    where("email", "==", identifier),
     where("password", "==", password)
   );
 
-  const snap = await getDocs(q);
+  let snap = await getDocs(q);
+
+  // nếu không có email khớp thì thử phone
+  if (snap.empty) {
+    q = query(
+      collection(db, "users"),
+      where("phone", "==", identifier),
+      where("password", "==", password)
+    );
+    snap = await getDocs(q);
+  }
 
   if (snap.empty) {
-    throw new Error("Số điện thoại hoặc mật khẩu không đúng");
+    throw new Error("Tài khoản hoặc mật khẩu không đúng");
   }
 
   const user = { id: snap.docs[0].id, ...snap.docs[0].data() };
+
+  // chặn tài khoản bị khóa
+  if (user.isActive === false) {
+    throw new Error("Tài khoản đã bị khóa. Liên hệ quản trị viên.");
+  }
 
   const token = `token-${user.id}-${Date.now()}`;
   localStorage.setItem("token", token);
@@ -32,13 +48,24 @@ export async function login(phone, password) {
   return { token, user };
 }
 
-// 🟢 ĐĂNG KÝ
+// 🟢 ĐĂNG KÝ USER THƯỜNG
 export async function register({ firstName, lastName, email, password, phone }) {
-  // check trùng email hoặc trùng phone cũng được
-  const q = query(collection(db, "users"), where("phone", "==", phone));
-  const snap = await getDocs(q);
-  if (!snap.empty) {
-    throw new Error("Số điện thoại đã được sử dụng");
+  // check trùng email
+  if (email) {
+    const qEmail = query(collection(db, "users"), where("email", "==", email));
+    const snapEmail = await getDocs(qEmail);
+    if (!snapEmail.empty) {
+      throw new Error("Email đã được sử dụng");
+    }
+  }
+
+  // check trùng phone (nếu có nhập)
+  if (phone) {
+    const qPhone = query(collection(db, "users"), where("phone", "==", phone));
+    const snapPhone = await getDocs(qPhone);
+    if (!snapPhone.empty) {
+      throw new Error("Số điện thoại đã được sử dụng");
+    }
   }
 
   const docRef = await addDoc(collection(db, "users"), {
@@ -46,15 +73,16 @@ export async function register({ firstName, lastName, email, password, phone }) 
     lastName: lastName || "",
     email: email || "",
     password,
-    phone,
+    phone: phone || "",
     role: "user",
+    isActive: true,
     createdAt: serverTimestamp(),
   });
 
   return { id: docRef.id };
 }
 
-// 🟢 LẤY THÔNG TIN USER ĐANG LƯU
+// 🟢 LẤY USER TỪ LOCAL
 export async function me() {
   const userStr = localStorage.getItem("user");
   if (!userStr) throw new Error("Chưa đăng nhập");

@@ -17,8 +17,7 @@ import { db } from "@shared/FireBase";
 // 1. Helpers
 // ==============================
 
-// 👉 giống y app: CartContext.tsx
-// `${id}-${size}-${base}-${topping}-${addOn}-${note}`
+// signature có cả branch để không merge chéo chi nhánh
 export function buildSignature(food, extra = {}) {
   const sizePart =
     extra.selectedSize?.label ||
@@ -42,14 +41,15 @@ export function buildSignature(food, extra = {}) {
 
   const notePart = (extra.note || food.note || "").trim() || "noNote";
 
-  return `${food.id || food.name}-${sizePart}-${basePart}-${toppingPart}-${addOnPart}-${notePart}`;
+  const branchPart = extra.branchId || food.branchId || "noBranch";
+
+  return `${food.id || food.name}-${sizePart}-${basePart}-${toppingPart}-${addOnPart}-${notePart}-${branchPart}`;
 }
 
-// 👉 giống app: (size ?? price) + base + topping + addOn
+// tính giá từ lựa chọn hiện tại
 export function calcPrice(food) {
   if (!food) return 0;
 
-  // 1) base = size price | food.selectedSize.price | food.price
   let price =
     (food.selectedSize && typeof food.selectedSize.price === "number"
       ? food.selectedSize.price
@@ -57,12 +57,10 @@ export function calcPrice(food) {
     (typeof food.price === "number" ? food.price : null) ??
     0;
 
-  // 2) base (pizza/burger)
   if (food.selectedBase?.price) {
     price += food.selectedBase.price;
   }
 
-  // 3) topping: có thể mảng hoặc 1 object
   if (Array.isArray(food.selectedToppings)) {
     for (const t of food.selectedToppings) {
       if (t?.price) price += t.price;
@@ -71,7 +69,6 @@ export function calcPrice(food) {
     price += food.selectedTopping.price;
   }
 
-  // 4) addOn
   if (food.selectedAddOn?.price) {
     price += food.selectedAddOn.price;
   }
@@ -80,9 +77,8 @@ export function calcPrice(food) {
 }
 
 // ==============================
-// 2. Thêm vào giỏ
+// 2. Thêm vào giỏ (bản tối giản)
 // ==============================
-
 export async function addToCart(
   userId,
   food,
@@ -93,23 +89,28 @@ export async function addToCart(
     selectedAddOn = null,
     note = "",
     quantity = 1,
+    branchId = null,
   } = {}
 ) {
   if (!userId) throw new Error("NO_USER");
   if (!food) throw new Error("NO_FOOD");
 
+  // lấy chi nhánh từ localStorage nếu không truyền
+  if (!branchId && typeof window !== "undefined") {
+    branchId = localStorage.getItem("selectedBranchId") || null;
+  }
+
   const cartCol = collection(db, "users", userId, "cart");
 
-  // build món sẽ lưu
   const signature = buildSignature(food, {
     selectedSize,
     selectedBase,
     selectedTopping,
     selectedAddOn,
     note,
+    branchId,
   });
 
-  // tính đơn giá đúng app
   const unitPrice = calcPrice({
     ...food,
     selectedSize,
@@ -118,12 +119,11 @@ export async function addToCart(
     selectedAddOn,
   });
 
-  // tìm xem đã có món trùng signature chưa
+  // tìm món trùng
   const q = query(cartCol, where("signature", "==", signature));
   const snap = await getDocs(q);
 
   if (!snap.empty) {
-    // đã có → tăng số lượng
     const docSnap = snap.docs[0];
     const data = docSnap.data();
     const oldQty = typeof data.quantity === "number" ? data.quantity : 1;
@@ -131,29 +131,23 @@ export async function addToCart(
 
     await updateDoc(docSnap.ref, {
       quantity: newQty,
-      price: unitPrice, // luôn giữ đơn giá mới nhất
+      price: unitPrice,
       updatedAt: serverTimestamp(),
     });
 
     return { merged: true, id: docSnap.id };
   }
 
-  // chưa có → tạo mới
+  // payload gọn
   const payload = {
-    id: food.id,
+    foodId: food.id, // để sau này tạo order
     name: food.name,
     image:
       food.image ||
       food.imageUrl ||
       "https://via.placeholder.com/150?text=Food",
     category: food.category || "",
-    description: food.description || "",
-    sizes: Array.isArray(food.sizes) ? food.sizes : [],
-    bases: Array.isArray(food.bases) ? food.bases : null,
-    toppings: Array.isArray(food.toppings) ? food.toppings : null,
-    addOns: Array.isArray(food.addOns) ? food.addOns : null,
-
-    // lựa chọn của người dùng
+    // chỉ lưu cái user chọn
     selectedSize,
     selectedBase,
     selectedTopping,
@@ -162,6 +156,7 @@ export async function addToCart(
     quantity,
     price: unitPrice,
     signature,
+    branchId: branchId || null,
     createdAt: serverTimestamp(),
   };
 
@@ -172,7 +167,6 @@ export async function addToCart(
 // ==============================
 // 3. Nghe realtime giỏ
 // ==============================
-
 export function listenCart(userId, callback) {
   if (!userId) return () => {};
   const cartCol = collection(db, "users", userId, "cart");
@@ -198,7 +192,6 @@ export function listenCart(userId, callback) {
 // ==============================
 // 4. Update / delete
 // ==============================
-
 export async function updateCartQty(userId, cartDocId, quantity) {
   if (!userId || !cartDocId) return;
   const ref = doc(db, "users", userId, "cart", cartDocId);

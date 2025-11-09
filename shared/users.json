@@ -1,0 +1,59 @@
+[
+  {
+    "id": "A01",
+    "email": "admin@kinget.com",
+    "password": "admin123",
+    "firstName": "System",
+    "lastName": "Admin",
+    "phone": "0900000000",
+    "role": "admin",
+    "isActive": true,
+    "createdAt": "2025-11-08T07:00:00.000Z"
+  },
+  {
+    "id": "R01",
+    "email": "cn1@kinget.com",
+    "password": "123",
+    "firstName": "CN1",
+    "lastName": "Kinget",
+    "phone": "0901111111",
+    "role": "restaurant",
+    "branchId": "B01",
+    "isActive": true,
+    "createdAt": "2025-11-08T07:05:00.000Z"
+  },
+  {
+    "id": "R02",
+    "email": "cn2@kinget.com",
+    "password": "123",
+    "firstName": "CN2",
+    "lastName": "Kinget",
+    "phone": "0902222222",
+    "role": "restaurant",
+    "branchId": "B02",
+    "isActive": true,
+    "createdAt": "2025-11-08T07:06:00.000Z"
+  },
+  {
+    "id": "U1001",
+    "email": "user1@gmail.com",
+    "password": "123",
+    "firstName": "Kim",
+    "lastName": "Nguyen",
+    "phone": "0903333333",
+    "role": "user",
+    "isActive": true,
+    "createdAt": "2025-11-08T07:10:00.000Z"
+  },
+  {
+    "id": "U1002",
+    "email": "user2@gmail.com",
+    "password": "123",
+    "firstName": "Minh",
+    "lastName": "Tran",
+    "phone": "0904444444",
+    "role": "user",
+    "isActive": true,
+    "createdAt": "2025-11-08T07:12:00.000Z"
+  }
+]

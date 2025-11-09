@@ -1,0 +1,5 @@
+# Ignore dependencies and vite cache
+node_modules/
+.vite/
+node_modules/.vite/
+web/node_modules/.vite/

@@ -1,19 +1,12 @@
 // src/pages/Cart.jsx
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./css/cart.css";
-import { db } from "@shared/FireBase";
 import {
-  collection,
-  onSnapshot,
-  deleteDoc,
-  doc,
-  updateDoc,
-} from "firebase/firestore";
-import {
-  calcPrice as calcCartPrice,
+  listenCart,
   removeCartItem,
   updateCartQty,
+  calcPrice as calcCartPrice,
 } from "../services/cartClient";
 
 export default function CartPage() {
@@ -26,64 +19,26 @@ export default function CartPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const userStr = localStorage.getItem("user");
+  const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
   const currentUser = userStr ? JSON.parse(userStr) : null;
   const userId = currentUser?.id;
 
   // ===== realtime cart =====
-  const setupCartListener = useCallback(() => {
-    if (!userId) return () => {};
-
-    const cartRef = collection(db, "users", userId, "cart");
-
-    const unsub = onSnapshot(
-      cartRef,
-      (snap) => {
-        const data = snap.docs.map((d) => {
-          const row = d.data();
-          const qty =
-            typeof row.quantity === "number" && row.quantity > 0
-              ? row.quantity
-              : 1;
-
-          // nếu doc có price thì dùng luôn, nếu không thì tính lại
-          const unit =
-            typeof row.price === "number" ? row.price : calcCartPrice(row);
-
-          return {
-            cartDocId: d.id,
-            ...row,
-            quantity: qty,
-            _unitPrice: unit,
-            _lineTotal: unit * qty,
-          };
-        });
-
-        setItems(data);
-        setSelectedIds(data.map((d) => d.cartDocId));
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Lỗi nghe giỏ:", err);
-        setItems([]);
-        setSelectedIds([]);
-        setLoading(false);
-      }
-    );
-
-    return unsub;
-  }, [userId]);
-
   useEffect(() => {
     if (!userId) {
       navigate("/login");
       return;
     }
-    const unsub = setupCartListener();
+    const unsub = listenCart(userId, (data) => {
+      // data đã có _unitPrice, _lineTotal từ cartClient
+      setItems(data);
+      setSelectedIds(data.map((d) => d.cartDocId));
+      setLoading(false);
+    });
     return () => {
       if (unsub) unsub();
     };
-  }, [userId, navigate, setupCartListener]);
+  }, [userId, navigate]);
 
   // ===== xoá =====
   const askDelete = (item) => {
@@ -97,10 +52,7 @@ export default function CartPage() {
       return;
     }
     try {
-      // dùng service nếu thích
       await removeCartItem(userId, deleteTarget.cartDocId);
-      // hoặc:
-      // await deleteDoc(doc(db, "users", userId, "cart", deleteTarget.cartDocId));
     } catch (e) {
       console.error("Xoá Firestore lỗi:", e);
     }
@@ -114,7 +66,7 @@ export default function CartPage() {
     if (newQty < 1) return;
     try {
       await updateCartQty(userId, cartDocId, newQty);
-      // không setState thủ công vì onSnapshot sẽ bắn lại
+      // realtime sẽ bắn lại
     } catch (e) {
       console.error(e);
     }
@@ -144,24 +96,18 @@ export default function CartPage() {
     const line =
       typeof it._lineTotal === "number"
         ? it._lineTotal
-        : (it.price || 0) * (it.quantity || 1);
+        : (it.price || calcCartPrice(it)) * (it.quantity || 1);
     return sum + line;
   }, 0);
 
   // helper topping
   const renderTopping = (it) => {
-    if (Array.isArray(it.selectedToppings) && it.selectedToppings.length > 0) {
-      return (
-        <span>
-          Topping: {it.selectedToppings.map((t) => t.label).join(", ")}
-        </span>
-      );
-    }
+    // bây giờ cart đã gọn, nên chỉ còn selectedTopping hoặc selectedAddOn
     if (it.selectedTopping && typeof it.selectedTopping === "object") {
       return <span>Topping: {it.selectedTopping.label}</span>;
     }
     if (it.selectedAddOn && typeof it.selectedAddOn === "object") {
-      return <span>Topping: {it.selectedAddOn.label}</span>;
+      return <span>Thêm: {it.selectedAddOn.label}</span>;
     }
     return null;
   };
@@ -226,6 +172,7 @@ export default function CartPage() {
                   {it.selectedBase && <span>Đế: {it.selectedBase.label}</span>}
                   {renderTopping(it)}
                   {it.note && <span>Ghi chú: {it.note}</span>}
+                  {it.branchId && <span>CN: {it.branchId}</span>}
                 </div>
               </div>
 
