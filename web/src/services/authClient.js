@@ -93,4 +93,5 @@ export async function me() {
 export async function logout() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
+  window.location.href = "/";
 }

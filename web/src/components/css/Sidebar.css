@@ -1,0 +1,96 @@
+/* vỏ sidebar */
+.rest-sidebar {
+  width: 230px;
+  background: #ff7a1a;           /* cam chủ đạo */
+  color: #fff;
+  padding: 18px 14px;
+  min-height: 100vh;
+  box-shadow: 0 10px 25px rgba(255, 122, 26, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* phần tên nhà hàng */
+.rest-brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.rest-brand-circle {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+
+.rest-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+/* tên nhà hàng to, đậm */
+.rest-brand-name {
+  font-size: 1.15rem;            /* to hơn */
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.rest-brand-sub {
+  font-size: 0.7rem;
+  opacity: 0.9;
+}
+
+/* menu */
+.rest-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+/* link thường */
+.rest-link {
+  display: block;
+  background: rgba(255, 255, 255, 0.0);
+  color: #fff;
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  transition: all 0.12s ease-out;
+}
+
+/* hover nhẹ */
+.rest-link:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* link đang active */
+.rest-link.active {
+  background: #fff;
+  color: #ff7a1a;
+  font-weight: 600;
+  box-shadow: 0 6px 12px rgba(255, 122, 26, 0.35);
+}
+
+/* mobile */
+@media (max-width: 768px) {
+  .rest-sidebar {
+    width: 100%;
+    min-height: auto;
+    flex-direction: row;
+    align-items: center;
+  }
+  .rest-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
