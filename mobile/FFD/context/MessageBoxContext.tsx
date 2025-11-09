@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { RootSiblingParent } from "react-native-root-siblings"; // ✅ Thêm dòng này
 
 const { width, height } = Dimensions.get("window");
 
@@ -55,14 +56,14 @@ export const MessageBoxProvider = ({ children }: any) => {
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
 
     setTimeout(() => {
       Animated.timing(fadeAnim, {
         toValue: 0,
         duration: 300,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start(() => setBox({ ...box, visible: false }));
     }, 1000);
   };
@@ -101,24 +102,58 @@ export const MessageBoxProvider = ({ children }: any) => {
     }
   };
 
+  /* ========================== */
+  /* 🔸 TRẢ VỀ GIAO DIỆN CHÍNH */
+  /* ========================== */
   return (
     <MessageBoxContext.Provider value={{ show, confirm }}>
-      {children}
+      <RootSiblingParent>
+        {children}
+      </RootSiblingParent>
 
-      {/* 🔹 MessageBox hiển thị thông báo ngắn */}
+      {/* 🔹 Message Toast */}
       {box.visible && (
-        <>
-          <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
-          <Animated.View style={[styles.messageBox, { opacity: fadeAnim }]}>
-            <Ionicons name={getIcon() as any} size={48} color={getColor()} />
-            {box.message ? (
-              <Text style={styles.message}>{box.message}</Text>
-            ) : null}
-          </Animated.View>
-        </>
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 999999,
+              elevation: 999999,
+              opacity: fadeAnim,
+            },
+          ]}
+        >
+          <View
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 16,
+              padding: 20,
+              alignItems: "center",
+              shadowColor: "#000",
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 8,
+            }}
+          >
+            <Ionicons name={getIcon() as any} size={44} color={getColor()} />
+            <Text
+              style={{
+                fontSize: 17,
+                fontWeight: "bold",
+                marginVertical: 10,
+                color: "#333",
+                textAlign: "center",
+              }}
+            >
+              {box.message}
+            </Text>
+          </View>
+        </Animated.View>
       )}
 
-      {/* 🔸 ConfirmBox hỏi xác nhận */}
+      {/* 🔸 Confirm Dialog */}
       {confirmBox.visible && (
         <>
           <View style={styles.overlay} />
@@ -159,29 +194,8 @@ const styles = StyleSheet.create({
     width,
     height,
     backgroundColor: "rgba(0,0,0,0.4)",
-    zIndex: 9999,
-  },
-  messageBox: {
-    position: "absolute",
-    top: height / 2 - 100,
-    left: width / 2 - 150,
-    width: 300,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    alignItems: "center",
-    zIndex: 10000,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  message: {
-    fontSize: 17,
-    fontWeight: "bold",
-    marginVertical: 10,
-    color: "#333",
-    textAlign: "center",
+    zIndex: 999998,
+    elevation: 999998,
   },
   confirmBox: {
     position: "absolute",
@@ -192,11 +206,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     alignItems: "center",
-    zIndex: 1000,
+    zIndex: 999999,
+    elevation: 999999,
     shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 10,
-    elevation: 6,
   },
   confirmMessage: {
     fontSize: 16,
@@ -222,3 +236,5 @@ const styles = StyleSheet.create({
   cancelText: { color: "#333", fontWeight: "600", fontSize: 15 },
   okText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });
+
+export default MessageBoxProvider;

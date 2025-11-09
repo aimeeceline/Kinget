@@ -1,17 +1,21 @@
-import React, { useContext } from "react";
+import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Platform, TouchableOpacity } from "react-native";
+import { TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { getFocusedRouteNameFromRoute } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 
+// ======= Các màn hình =======
 import GetStartedScreen from "../screens/auth/GetStarted";
 import AuthTabs from "../screens/auth/AuthTabs";
+import UserNavigator from "./UserNavigator";
+import RestaurantNavigator from "./RestaurantNavigator";
+import AdminNavigator from "./AdminNavigator"; // 🆕 Thêm navigator cho admin
+
+// ======= Màn hình chung =======
 import FoodDetailScreen from "../screens/user/FoodDetail";
 import CartScreen from "../screens/user/Cart";
 import AddressScreen from "../screens/user/Address";
-import UserNavigator from "./UserNavigator";
-import RestaurantNavigator from "./RestaurantNavigator";
 import CheckoutScreen from "../screens/user/Checkout";
 import TransferScreen from "../screens/user/Transfer";
 import OrderDetailScreen from "../screens/user/OrderDetail";
@@ -21,6 +25,7 @@ export type RootStackParamList = {
   Auth: { initialTab?: "login" | "register" };
   MainTabs: undefined;
   RestaurantTabs: undefined;
+  AdminTabs: undefined; // 🆕 thêm route admin
   FoodDetail: { food: any };
   Cart: undefined;
   Address: undefined;
@@ -35,51 +40,36 @@ const AppNavigator: React.FC = () => {
   const { user, guestMode } = useAuth();
 
   return (
-   <Stack.Navigator
-  screenOptions={({ navigation, route }) => {
-    const currentRouteName = getFocusedRouteNameFromRoute(route) ?? "";
+    <Stack.Navigator
+      screenOptions={({ navigation, route }) => {
+        const currentRouteName = getFocusedRouteNameFromRoute(route) ?? "";
+        const isMainTab =
+          route.name === "MainTabs" ||
+          route.name === "RestaurantTabs" ||
+          route.name === "AdminTabs" ||
+          ["Home", "Menu", "Account", "Dashboard"].includes(currentRouteName);
 
-    const isMainTab =
-      route.name === "MainTabs" ||
-      route.name === "RestaurantTabs" ||
-      ["Home", "Menu", "Account", "Dashboard"].includes(currentRouteName);
-
-    return {
-      headerShown: true,
-      headerStyle: {
-        backgroundColor: "#fff",
-        height: 80, // tăng nhẹ để cân đối icon + chữ
-      },
-      headerTitleAlign: "center",
-      headerTitleStyle: {
-        fontWeight: "bold",
-        fontSize: 24,
-        color: "#000000ff",
-        marginTop: 100,
-      },
-      headerTintColor: "#F58220",
-      headerShadowVisible: false,
-
-      // ✅ Tùy chỉnh headerLeft cho nút back
-      headerLeft: isMainTab
-        ? undefined
-        : () => (
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={{
-                justifyContent: "center",
-                alignItems: "center",
-                paddingBottom:4 ,
-              }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // dễ bấm hơn
-            >
-              <Ionicons name="arrow-back" size={31} color="#F58220" />
-            </TouchableOpacity>
-          ),
-    };
-  }}
->
-
+        return {
+          headerShown: true,
+          headerStyle: { backgroundColor: "#fff", height: 80 },
+          headerTitleAlign: "center",
+          headerTitleStyle: {
+            fontWeight: "bold",
+            fontSize: 22,
+            color: "#000",
+          },
+          headerTintColor: "#F58220",
+          headerShadowVisible: false,
+          headerLeft: isMainTab
+            ? undefined
+            : () => (
+                <TouchableOpacity onPress={() => navigation.goBack()}>
+                  <Ionicons name="arrow-back" size={28} color="#F58220" />
+                </TouchableOpacity>
+              ),
+        };
+      }}
+    >
       {/* Người chưa đăng nhập */}
       {!user && !guestMode && (
         <>
@@ -96,7 +86,7 @@ const AppNavigator: React.FC = () => {
         </>
       )}
 
-      {/* Khách vãng lai (Guest) */}
+      {/* Khách */}
       {guestMode && (
         <Stack.Screen
           name="MainTabs"
@@ -105,7 +95,7 @@ const AppNavigator: React.FC = () => {
         />
       )}
 
-      {/* Người dùng thường */}
+      {/* User */}
       {user?.role === "user" && (
         <Stack.Screen
           name="MainTabs"
@@ -114,7 +104,7 @@ const AppNavigator: React.FC = () => {
         />
       )}
 
-      {/* Nhà hàng */}
+      {/* Restaurant */}
       {user?.role === "restaurant" && (
         <Stack.Screen
           name="RestaurantTabs"
@@ -123,37 +113,22 @@ const AppNavigator: React.FC = () => {
         />
       )}
 
+      {/* Admin */}
+      {user?.role === "admin" && (
+        <Stack.Screen
+          name="AdminTabs"
+          component={AdminNavigator}
+          options={{ headerShown: false }}
+        />
+      )}
+
       {/* Màn hình chung */}
-      <Stack.Screen
-        name="FoodDetail"
-        component={FoodDetailScreen}
-        options={{ title: "Chi tiết món" }}
-      />
-      <Stack.Screen
-        name="Cart"
-        component={CartScreen}
-        options={{ title: "Giỏ hàng" }}
-      />
-      <Stack.Screen
-        name="Address"
-        component={AddressScreen}
-        options={{ title: "Địa chỉ giao hàng" }}
-      />
-      <Stack.Screen
-        name="Checkout"
-        component={CheckoutScreen}
-        options={{ title: "Thanh toán" }}
-      />
-      <Stack.Screen
-        name="Transfer"
-        component={TransferScreen}
-        options={{ title: "Thanh toán chuyển khoản" }}
-      />
-      <Stack.Screen
-        name="OrderDetail"
-        component={OrderDetailScreen}
-        options={{ title: "Chi tiết đơn hàng" }}
-      />
+      <Stack.Screen name="FoodDetail" component={FoodDetailScreen} options={{ title: "Chi tiết món" }} />
+      <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Giỏ hàng" }} />
+      <Stack.Screen name="Address" component={AddressScreen} options={{ title: "Địa chỉ giao hàng" }} />
+      <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: "Thanh toán" }} />
+      <Stack.Screen name="Transfer" component={TransferScreen} options={{ title: "Chuyển khoản" }} />
+      <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: "Chi tiết đơn hàng" }} />
     </Stack.Navigator>
   );
 };

@@ -32,17 +32,24 @@ const CartScreen: React.FC = () => {
       : user?.firstName || "Khách";
 
    // ✅ Tổng tiền các món được chọn
-  const subtotal = cart.reduce((sum, item, index) => {
-    if (selectedItems.includes(index)) {
-      const price =
-        (item.selectedSize?.price || 0) +
-        (item.selectedBase?.price || 0) +
-        (item.selectedTopping?.price || 0) +
-        (item.selectedAddOn?.price || 0);
-      return sum + price * (item.quantity || 1);
-    }
-    return sum;
-  }, 0);
+ // ✅ Tổng tiền các món được chọn
+const subtotal = cart.reduce((sum, item, index) => {
+  if (selectedItems.includes(index)) {
+    const price =
+      (item.selectedSize?.price || 0) +
+      (item.selectedBase?.price || 0) +
+      (Array.isArray(item.selectedTopping)
+        ? item.selectedTopping.reduce((s, t) => s + (t.price || 0), 0)
+        : 0) +
+      (Array.isArray(item.selectedAddOn)
+        ? item.selectedAddOn.reduce((s, a) => s + (a.price || 0), 0)
+        : 0);
+
+    return sum + price * (item.quantity || 1);
+  }
+  return sum;
+}, 0);
+
 
   // ✅ Bật/tắt checkbox
   const toggleSelect = (index: number) => {
@@ -83,13 +90,16 @@ return (
         ) : (
           cart.map((item, index) => {
             // ✅ Tính giá đơn vị đúng
-          const itemPrice =
-            (item.selectedSize?.price ??
-              item.price ?? // nếu món không có size thì dùng price gốc
-              0) +
-            (item.selectedBase?.price || 0) +
-            (item.selectedTopping?.price || 0) +
-            (item.selectedAddOn?.price || 0);
+         const itemPrice =
+          (item.selectedSize?.price ?? item.price ?? 0) +
+          (item.selectedBase?.price || 0) +
+          (Array.isArray(item.selectedTopping)
+            ? item.selectedTopping.reduce((sum, t) => sum + (t.price || 0), 0)
+            : 0) +
+          (Array.isArray(item.selectedAddOn)
+            ? item.selectedAddOn.reduce((sum, a) => sum + (a.price || 0), 0)
+            : 0);
+
 
             return (
               <View key={index} style={styles.cartCard}>
@@ -114,12 +124,20 @@ return (
                   {item.selectedBase?.label && (
                     <Text style={styles.foodDetail}>Đế: {item.selectedBase.label}</Text>
                   )}
-                  {item.selectedTopping?.label && (
-                    <Text style={styles.foodDetail}>Topping: {item.selectedTopping.label}</Text>
+                  {item.selectedTopping && item.selectedTopping.length > 0 && (
+                    <Text style={styles.foodDetail}>
+                      Topping:{" "}
+                      {item.selectedTopping.map((t) => t.label).join(", ")}
+                    </Text>
                   )}
-                  {item.selectedAddOn?.label && (
-                    <Text style={styles.foodDetail}>Thêm: {item.selectedAddOn.label}</Text>
+
+                  {item.selectedAddOn && item.selectedAddOn.length > 0 && (
+                    <Text style={styles.foodDetail}>
+                      Thêm:{" "}
+                      {item.selectedAddOn.map((a) => a.label).join(", ")}
+                    </Text>
                   )}
+
 
                   {/* 📝 Ghi chú */}
                   {item.note ? (

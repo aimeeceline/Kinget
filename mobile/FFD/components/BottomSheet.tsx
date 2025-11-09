@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import Modal from "react-native-modal";
 import { Ionicons } from "@expo/vector-icons";
+import { useMessageBox } from "../context/MessageBoxContext"; // chỉnh đường dẫn nếu cần
 
 const { height } = Dimensions.get("window");
 
@@ -31,14 +32,17 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
   showBackButton = false,
   onBackPress,
 }) => {
+  const { show } = useMessageBox(); // ✅ lấy hàm show()
+
   return (
     <Modal
       isVisible={visible}
       onBackdropPress={onClose}
       onSwipeComplete={onClose}
       swipeDirection={["down"]}
-      style={styles.modal}
       propagateSwipe
+      style={[styles.modal, { zIndex: 10, elevation: 10 }]}       
+      useNativeDriver={false}
     >
       <View style={[styles.sheet, { height: height * heightPercent }]}>
         {/* Thanh kéo */}
@@ -51,13 +55,11 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
               <Ionicons name="arrow-back" size={22} color="#F58220" />
             </TouchableOpacity>
           ) : (
-            <View style={{ width: 22 }} /> // Giữ tiêu đề căn giữa khi không có nút quay lại
+            <View style={{ width: 22 }} />
           )}
 
           <Text style={styles.title}>{title}</Text>
-
-          {/* ❌ Bỏ nút đóng */}
-          <View style={{ width: 22 }} /> 
+          <View style={{ width: 22 }} />
         </View>
 
         {/* Nội dung */}
@@ -67,6 +69,22 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
         >
           {children}
         </ScrollView>
+
+        {/* ✅ Vùng riêng để MessageBox hiển thị TRONG modal */}
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            alignItems: "center",
+            zIndex: 9999,
+            elevation: 9999,
+          }}
+        >
+          {/* Khi bạn gọi show() -> MessageBox từ Context sẽ tự xuất hiện */}
+        </View>
       </View>
     </Modal>
   );
@@ -78,7 +96,8 @@ const styles = StyleSheet.create({
   modal: {
     justifyContent: "flex-end",
     margin: 0,
-    zIndex: 50, // 👈 thấp hơn MessageBox
+    // zIndex: 10,
+    // elevation: 10 
   },
   sheet: {
     backgroundColor: "#fff",
@@ -86,7 +105,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
     paddingTop: 8,
-    zIndex: 50, // 👈 thấp hơn MessageBox
   },
   dragBar: {
     alignSelf: "center",
