@@ -1,4 +1,4 @@
-// src/pages/Checkout/index.jsx
+// src/pages/Checkout.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { db } from "@shared/FireBase";
@@ -13,54 +13,102 @@ import {
 import { removeCartItem } from "../services/cartClient";
 import "./css/Checkout.css";
 
-// ⭐ toạ độ nhà hàng / kho giao hàng (ở Bùi Viện)
-const RESTAURANT_LOCATION = {
-  lat: 10.7672,
-  lng: 106.6936,
-};
+// 👇 thêm 3 import này nếu bạn đã dùng react-leaflet ở chỗ khác thì khỏi
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+// ---------------- QR POPUP ----------------
+function QRPopup({ open, onClose, amount, orderId }) {
+  if (!open) return null;
+  return (
+    <div className="qr-overlay">
+      <div className="qr-box">
+        <h3>Quét mã để thanh toán</h3>
+        {orderId ? <p>Đơn hàng: {orderId}</p> : null}
+        {typeof amount === "number" ? (
+          <p>Số tiền: {amount.toLocaleString("vi-VN")} đ</p>
+        ) : null}
+
+        {/* bạn thay bằng ảnh QR thật của bạn */}
+        <img
+          src="/static/common/qr-demo.png"
+          alt="QR thanh toán"
+          className="qr-img"
+        />
+
+        <p style={{ marginTop: 10, fontSize: 13, color: "#666" }}>
+          Sau vài giây hệ thống sẽ chuyển sang trang xác nhận...
+        </p>
+
+        <button type="button" className="qr-close" onClick={onClose}>
+          Đóng
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// icon mặc định của leaflet trong Vite hay lỗi, nên set tạm
+const defaultIcon = new L.Icon({
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  iconRetinaUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+L.Marker.prototype.options.icon = defaultIcon;
+
+function ClickToPick({ onPick }) {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng);
+    },
+  });
+  return null;
+}
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ===== 1. lấy state gửi từ Cart =====
   const selectedFromCart = Array.isArray(location.state?.selectedIds)
     ? location.state.selectedIds
     : [];
   const cameFromCart = selectedFromCart.length > 0;
 
-  // ===== 2. user hiện tại =====
   const userStr = localStorage.getItem("user");
   const currentUser = userStr ? JSON.parse(userStr) : null;
   const userId = currentUser?.id;
   const orderUserId = currentUser?.phone || currentUser?.id;
 
-  // ===== 3. state trong trang =====
   const [cartItems, setCartItems] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
-  const [shippingMethod, setShippingMethod] = useState("bike"); // bike | drone (UI)
-  const [paymentMethod, setPaymentMethod] = useState("cod"); // cod | bank (UI)
-  const [address, setAddress] = useState(
-    ""
-  );
+
+  const [shippingMethod, setShippingMethod] = useState("bike");
+  const [paymentMethod, setPaymentMethod] = useState("cod");
+
   const [address, setAddress] = useState("");
   const [receiverName, setReceiverName] = useState(
     currentUser?.firstName || "Khách"
   );
-  const [receiverPhone, setReceiverPhone] = useState(
-    currentUser?.phone || ""
-  );
+  const [receiverPhone, setReceiverPhone] = useState(currentUser?.phone || "");
 
-  // toạ độ giao cho khách
   const [deliveryLat, setDeliveryLat] = useState(null);
   const [deliveryLng, setDeliveryLng] = useState(null);
 
-  // chi nhánh đã chọn
   const [branchId, setBranchId] = useState(null);
-  // toạ độ chi nhánh từ Firestore
   const [branchPos, setBranchPos] = useState(null);
 
-  // ===== load sẵn từ localStorage =====
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [mapCenter, setMapCenter] = useState([10.775, 106.7]); // tâm map
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // 👇 state mới cho popup QR
+  const [showQR, setShowQR] = useState(false);
+  const [lastOrderId, setLastOrderId] = useState(null);
+
+  // ----- load từ localStorage -----
   useEffect(() => {
     const savedAddr = localStorage.getItem("deliveryAddress");
     const savedLat = localStorage.getItem("deliveryLat");
@@ -75,7 +123,7 @@ export default function CheckoutPage() {
     if (savedBranch) setBranchId(savedBranch);
   }, []);
 
-  // ===== nếu có branchId thì lấy tọa độ chi nhánh từ Firestore =====
+  // ----- load tọa độ chi nhánh -----
   useEffect(() => {
     async function fetchBranch() {
       if (!branchId) {
@@ -98,7 +146,7 @@ export default function CheckoutPage() {
     fetchBranch();
   }, [branchId]);
 
-  // ===== 4. load giỏ theo realtime =====
+  // ----- realtime cart -----
   useEffect(() => {
     if (!userId) {
       navigate("/login");
@@ -119,7 +167,6 @@ export default function CheckoutPage() {
         );
         setSelectedIds(valid);
       } else {
-        // mặc định chọn hết
         setSelectedIds(data.map((d) => d.cartId));
       }
     });
@@ -127,7 +174,7 @@ export default function CheckoutPage() {
     return () => unsub();
   }, [userId, navigate, cameFromCart, selectedFromCart]);
 
-  // ===== 5. tính toán =====
+  // ----- tính toán -----
   const selectedItems = useMemo(
     () => cartItems.filter((it) => selectedIds.includes(it.cartId)),
     [cartItems, selectedIds]
@@ -148,30 +195,30 @@ export default function CheckoutPage() {
 
   const grandTotal = subtotal + shippingFee;
 
-  // ===== helper: normalize item =====
-  const normalizeOrderItem = (item) => {
-    return {
-      cartId: item.cartId,
-      foodId: item.foodId || item.id,
-      name: item.name,
-      image: item.image || "",
-      category: item.category || "",
-      quantity: item.quantity || 1,
-      price: item.price || 0,
-      selectedSize: item.selectedSize ?? null,
-      selectedBase: item.selectedBase ?? null,
-      selectedTopping: item.selectedTopping ?? null,
-      selectedAddOn: item.selectedAddOn ?? null,
-      note: item.note ?? null,
-      signature: item.signature || "",
-      branchId: item.branchId || null,
-    };
-  };
+  const normalizeOrderItem = (item) => ({
+    cartId: item.cartId,
+    foodId: item.foodId || item.id,
+    name: item.name,
+    image: item.image || "",
+    category: item.category || "",
+    quantity: item.quantity || 1,
+    price: item.price || 0,
+    selectedSize: item.selectedSize ?? null,
+    selectedBase: item.selectedBase ?? null,
+    selectedTopping: item.selectedTopping ?? null,
+    selectedAddOn: item.selectedAddOn ?? null,
+    note: item.note ?? null,
+    signature: item.signature || "",
+    branchId: item.branchId || null,
+  });
 
-  // ===== 6. submit đơn hàng =====
   const handlePlaceOrder = async () => {
     if (!userId) {
       navigate("/login");
+      return;
+    }
+    if (!branchId) {
+      alert("Bạn chưa chọn chi nhánh.");
       return;
     }
     if (selectedItems.length === 0) {
@@ -190,35 +237,18 @@ export default function CheckoutPage() {
       alert("Vui lòng nhập địa chỉ giao hàng.");
       return;
     }
-    if (!branchId) {
-      alert("Bạn chưa chọn chi nhánh.");
-      return;
-    }
 
     try {
-      // map giá trị UI → giá trị app
-      const shippingForDb = shippingMethod === "bike" ? "motorbike" : "drone";
-      const paymentForDb = paymentMethod === "cod" ? "cash" : "bank";
-      // map giá trị UI → giá trị lưu
       const shippingForDb =
         shippingMethod === "bike" ? "motorbike" : "drone";
-      const paymentForDb =
-        paymentMethod === "cod" ? "cash" : "bank";
+      const paymentForDb = paymentMethod === "cod" ? "cash" : "bank";
 
-      const normalizedItems = selectedItems.map((it) =>
-        normalizeOrderItem(it)
-      );
+      const normalizedItems = selectedItems.map((it) => normalizeOrderItem(it));
 
-      // chuẩn bị toạ độ giao hàng
+      // tọa độ giao hàng
       let lat = deliveryLat;
       let lng = deliveryLng;
 
-      // ===== chuẩn bị toạ độ giao hàng =====
-      let lat = deliveryLat;
-      let lng = deliveryLng;
-
-      // nếu user không bấm "Lấy vị trí" mà chỉ nhập địa chỉ
-      // thì thử geocode để lấy lat/lng
       if ((!lat || !lng) && address.trim()) {
         const resp = await fetch(
           `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
@@ -234,72 +264,120 @@ export default function CheckoutPage() {
 
       const deliveryObj = lat && lng ? { lat, lng } : null;
 
-      // ⭐ tạo đơn
-      // gói thành object (có thể null)
-      const deliveryObj =
-        lat && lng
-          ? { lat, lng }
-          : null;
-
-      // ⭐ tạo đơn
-      await addDoc(collection(db, "orders"), {
+      // 👇 tạo đơn
+      const orderRef = await addDoc(collection(db, "orders"), {
         userId: orderUserId,
         receiverName: receiverName.trim(),
         receiverPhone: receiverPhone.trim(),
-        address: address.trim(),           // 👈 địa chỉ chữ (từ Nominatim hoặc user gõ)
-        delivery:
-          deliveryLat && deliveryLng
-            ? { lat: deliveryLat, lng: deliveryLng }
-            : null,                        // 👈 để màn tracking vẽ map
         orderAddress: address.trim(),
-        address: address.trim(),
-
-        // điểm giao khách
         delivery: deliveryObj,
-
-        // chi nhánh (lấy từ localStorage)
         branchId: branchId,
-
-        // điểm xuất phát / vị trí tài xế ban đầu = chi nhánh trong Firestore
-        origin: branchPos
-          ? { lat: branchPos.lat, lng: branchPos.lng }
-          : null,
-        currentPos: branchPos
-          ? { lat: branchPos.lat, lng: branchPos.lng }
-          : null,
-
-        // ⭐ điểm xuất phát (nhà hàng)
-        origin: {
-          lat: RESTAURANT_LOCATION.lat,
-          lng: RESTAURANT_LOCATION.lng,
-        },
-
-        // ⭐ vị trí hiện tại = nhà hàng (để tracking show ngay)
-        currentPos: {
-          lat: RESTAURANT_LOCATION.lat,
-          lng: RESTAURANT_LOCATION.lng,
-        },
-
+        origin: branchPos ? { ...branchPos } : null,
+        currentPos: branchPos ? { ...branchPos } : null,
         items: normalizedItems,
         shippingMethod: shippingForDb,
         paymentMethod: paymentForDb,
         shippingFee,
         subtotal,
         total: grandTotal,
-        status: "preparing",
+        status: "processing",
         createdAt: serverTimestamp(),
       });
 
-      // xoá các item đã đặt khỏi giỏ
+      // xoá món trong giỏ
       await Promise.all(
         selectedItems.map((it) => removeCartItem(userId, it.cartId))
       );
 
+      const newOrderId = orderRef.id;
+
+      // nếu là chuyển khoản → show QR rồi 5s chuyển trang
+      if (paymentMethod === "bank") {
+        setLastOrderId(newOrderId);
+        setShowQR(true);
+
+        setTimeout(() => {
+          navigate("/message", {
+            state: { orderId: newOrderId },
+          });
+        }, 5000);
+
+        return; // dừng ở đây, không alert nữa
+      }
+
+      // còn lại (COD) → như cũ
       alert("Đặt hàng thành công!");
-      navigate("/orders");
+      navigate("/");
     } catch (err) {
-      console.error("Đặt hàng lỗi:", err);
+      console.error(err);
       alert("Đặt hàng thất bại");
+    }
+  };
+
+  // dùng vị trí hiện tại (giữ nguyên như cũ)
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Trình duyệt không hỗ trợ định vị");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setDeliveryLat(latitude);
+        setDeliveryLng(longitude);
+
+        try {
+          const resp = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await resp.json();
+          if (data && data.display_name) {
+            setAddress(data.display_name);
+            localStorage.setItem("deliveryAddress", data.display_name);
+          } else {
+            const txt = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+            setAddress(txt);
+            localStorage.setItem("deliveryAddress", txt);
+          }
+        } catch (err) {
+          console.error("Reverse geocode lỗi:", err);
+          const txt = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+          setAddress(txt);
+          localStorage.setItem("deliveryAddress", txt);
+        }
+
+        setShowAddressModal(false);
+      },
+      (err) => {
+        console.error(err);
+        alert("Không lấy được vị trí");
+      }
+    );
+  };
+
+  // gọi reverse geocode mỗi khi click map
+  const handlePickOnMap = async (lat, lng) => {
+    setDeliveryLat(lat);
+    setDeliveryLng(lng);
+
+    try {
+      const resp = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+      );
+      const data = await resp.json();
+      if (data?.display_name) {
+        setAddress(data.display_name);
+        localStorage.setItem("deliveryAddress", data.display_name);
+      } else {
+        const txt = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        setAddress(txt);
+        localStorage.setItem("deliveryAddress", txt);
+      }
+    } catch (e) {
+      const txt = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      setAddress(txt);
+      localStorage.setItem("deliveryAddress", txt);
     }
   };
 
@@ -318,21 +396,18 @@ export default function CheckoutPage() {
               className="ck-address-input"
               value={receiverName}
               onChange={(e) => setReceiverName(e.target.value)}
-              placeholder="Tên người nhận"
             />
           </label>
-
           <label className="ck-field">
             <span className="ck-field-label">SĐT:</span>
             <input
               className="ck-address-input"
               value={receiverPhone}
               onChange={(e) => setReceiverPhone(e.target.value)}
-              placeholder="Số điện thoại"
             />
           </label>
 
-          <label className="ck-field">
+          <label className="ck-field" style={{ gap: 8 }}>
             <span className="ck-field-label">Địa chỉ:</span>
             <input
               className="ck-address-input"
@@ -340,66 +415,24 @@ export default function CheckoutPage() {
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Địa chỉ giao hàng"
             />
-          </label>
-
-          <button
-            type="button"
-            className="ck-map-btn"
-            onClick={() => {
-              if (!navigator.geolocation) {
-                alert("Trình duyệt không hỗ trợ định vị");
-                return;
-              }
-
-              navigator.geolocation.getCurrentPosition(
-                async (pos) => {
-                  const { latitude, longitude } = pos.coords;
-                  setDeliveryLat(latitude);
-                  setDeliveryLng(longitude);
-
-                  try {
-                    const resp = await fetch(
-                      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-                    );
-                    const data = await resp.json();
-                    if (data && data.display_name) {
-                      setAddress(data.display_name);
-                    } else {
-                      setAddress(
-                        `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-                      );
-                    }
-                  } catch (err) {
-                    console.error("Reverse geocode lỗi:", err);
-                    setAddress(
-                      `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-                    );
-                  }
-                },
-                (err) => {
-                  console.error(err);
-                  alert("Không lấy được vị trí");
+            <button
+              type="button"
+              className="ck-map-btn"
+              onClick={() => {
+                if (deliveryLat && deliveryLng) {
+                  setMapCenter([deliveryLat, deliveryLng]);
+                } else if (branchPos) {
+                  setMapCenter([branchPos.lat, branchPos.lng]);
+                } else {
+                  setMapCenter([10.775, 106.7]);
                 }
-              );
-            }}
-          >
-            Lấy vị trí hiện tại
-          </button>
+                setShowAddressModal(true);
+              }}
+            >
+              Chọn trên bản đồ
+            </button>
+          </label>
         </div>
-
-        <button
-          type="button"
-          className="ck-address-edit"
-          onClick={() => {
-            setReceiverName(currentUser?.firstName || "Khách");
-            setReceiverPhone(currentUser?.phone || "");
-            setAddress("284 An Dương Vương, P.3, Q.5, TP.HCM");
-            setDeliveryLat(null);
-            setDeliveryLng(null);
-          }}
-        >
-          ↺
-        </button>
       </section>
 
       {/* DANH SÁCH MÓN */}
@@ -443,7 +476,7 @@ export default function CheckoutPage() {
         )}
       </section>
 
-      {/* PHƯƠNG THỨC VẬN CHUYỂN */}
+      {/* SHIP */}
       <section className="ck-section">
         <h3>Phương thức vận chuyển</h3>
         <div
@@ -474,7 +507,7 @@ export default function CheckoutPage() {
         </div>
       </section>
 
-      {/* PHƯƠNG THỨC THANH TOÁN */}
+      {/* PAYMENT */}
       <section className="ck-section">
         <h3>Phương thức thanh toán</h3>
         <div
@@ -503,7 +536,7 @@ export default function CheckoutPage() {
         </div>
       </section>
 
-      {/* TỔNG TIỀN + NÚT */}
+      {/* SUMMARY */}
       <section className="ck-summary">
         <div className="ck-summary-row">
           <span>Tạm tính</span>
@@ -517,7 +550,6 @@ export default function CheckoutPage() {
           <span>Tổng thanh toán</span>
           <span>{grandTotal.toLocaleString("vi-VN")} đ</span>
         </div>
-
         <button
           className="ck-submit"
           onClick={handlePlaceOrder}
@@ -526,6 +558,128 @@ export default function CheckoutPage() {
           Đặt hàng ({selectedItems.length})
         </button>
       </section>
+
+      {/* MODAL chọn địa chỉ giao khác */}
+      {showAddressModal && (
+        <div className="ck-modal-backdrop">
+          <div className="ck-modal" style={{ width: 520 }}>
+            <h3>Chọn địa chỉ giao</h3>
+
+            {/* ô tìm kiếm địa chỉ */}
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Nhập địa chỉ cần tìm..."
+                style={{
+                  flex: 1,
+                  border: "1px solid #ddd",
+                  borderRadius: 6,
+                  padding: "6px 10px",
+                  fontSize: 13,
+                }}
+              />
+              <button
+                type="button"
+                className="ck-map-btn"
+                onClick={async () => {
+                  const q = searchQuery.trim();
+                  if (!q) return;
+                  try {
+                    const resp = await fetch(
+                      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+                        q
+                      )}`
+                    );
+                    const data = await resp.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                      const lat = parseFloat(data[0].lat);
+                      const lon = parseFloat(data[0].lon);
+
+                      // cập nhật địa chỉ + marker
+                      setDeliveryLat(lat);
+                      setDeliveryLng(lon);
+                      setAddress(data[0].display_name);
+                      localStorage.setItem(
+                        "deliveryAddress",
+                        data[0].display_name
+                      );
+                      setMapCenter([lat, lon]);
+                    } else {
+                      alert("Không tìm thấy địa chỉ.");
+                    }
+                  } catch (e) {
+                    console.error(e);
+                    alert("Tìm địa chỉ thất bại.");
+                  }
+                }}
+              >
+                Tìm
+              </button>
+            </div>
+
+            {/* map */}
+            <div className="ck-map-box" style={{ marginTop: 10 }}>
+              <MapContainer
+                center={mapCenter}
+                zoom={15}
+                style={{ height: "100%", width: "100%" }}
+              >
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution="&copy; OpenStreetMap"
+                />
+
+                {/* click trên map để chọn */}
+                <ClickToPick
+                  onPick={async (latlng) => {
+                    const { lat, lng } = latlng;
+                    setDeliveryLat(lat);
+                    setDeliveryLng(lng);
+                    setMapCenter([lat, lng]);
+
+                    try {
+                      const resp = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+                      );
+                      const data = await resp.json();
+                      const text =
+                        data?.display_name ||
+                        `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                      setAddress(text);
+                      localStorage.setItem("deliveryAddress", text);
+                    } catch (err) {
+                      const text = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                      setAddress(text);
+                      localStorage.setItem("deliveryAddress", text);
+                    }
+                  }}
+                />
+
+                {deliveryLat && deliveryLng && (
+                  <Marker position={[deliveryLat, deliveryLng]} />
+                )}
+              </MapContainer>
+            </div>
+
+            <button
+              type="button"
+              className="ck-modal-close"
+              onClick={() => setShowAddressModal(false)}
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP QR */}
+      <QRPopup
+        open={showQR}
+        onClose={() => setShowQR(false)}
+        amount={grandTotal}
+        orderId={lastOrderId}
+      />
     </div>
   );
 }

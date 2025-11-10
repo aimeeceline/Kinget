@@ -1,7 +1,7 @@
-/* vỏ sidebar */
+/* ===== VỎ SIDEBAR ===== */
 .rest-sidebar {
   width: 230px;
-  background: #ff7a1a;           /* cam chủ đạo */
+  background: #ff7a1a; /* cam chủ đạo */
   color: #fff;
   padding: 18px 14px;
   min-height: 100vh;
@@ -11,7 +11,7 @@
   gap: 18px;
 }
 
-/* phần tên nhà hàng */
+/* ===== BRAND / TÊN NHÀ HÀNG ===== */
 .rest-brand {
   display: flex;
   gap: 10px;
@@ -35,9 +35,8 @@
   line-height: 1.1;
 }
 
-/* tên nhà hàng to, đậm */
 .rest-brand-name {
-  font-size: 1.15rem;            /* to hơn */
+  font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
@@ -48,7 +47,7 @@
   opacity: 0.9;
 }
 
-/* menu */
+/* ===== MENU ===== */
 .rest-nav {
   display: flex;
   flex-direction: column;
@@ -58,8 +57,9 @@
 
 /* link thường */
 .rest-link {
+  position: relative; /* để đặt badge */
   display: block;
-  background: rgba(255, 255, 255, 0.0);
+  background: rgba(255, 255, 255, 0);
   color: #fff;
   text-decoration: none;
   padding: 8px 10px;
@@ -68,12 +68,12 @@
   transition: all 0.12s ease-out;
 }
 
-/* hover nhẹ */
+/* hover */
 .rest-link:hover {
   background: rgba(255, 255, 255, 0.15);
 }
 
-/* link đang active */
+/* link active */
 .rest-link.active {
   background: #fff;
   color: #ff7a1a;
@@ -81,7 +81,42 @@
   box-shadow: 0 6px 12px rgba(255, 122, 26, 0.35);
 }
 
-/* mobile */
+/* ===== BADGE SỐ ĐƠN CHỜ ===== */
+.rest-badge {
+  position: absolute;
+  top: 6px;
+  right: 14px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+/* ===== NÚT ĐĂNG XUẤT ===== */
+.rest-logout {
+  margin-top: auto; /* đẩy xuống cuối */
+  background: rgba(255, 255, 255, 0.2);
+  border: 0;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.12s ease-out;
+}
+
+.rest-logout:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ===== MOBILE ===== */
 @media (max-width: 768px) {
   .rest-sidebar {
     width: 100%;
@@ -89,8 +124,25 @@
     flex-direction: row;
     align-items: center;
   }
+
+  .rest-brand {
+    margin-bottom: 0;
+    margin-right: 12px;
+  }
+
   .rest-nav {
     flex-direction: row;
     flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+  }
+
+  .rest-link {
+    padding: 6px 10px;
+  }
+
+  .rest-logout {
+    margin-top: 0;
+    margin-left: 8px;
   }
 }

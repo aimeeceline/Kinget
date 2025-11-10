@@ -1,16 +1,15 @@
 // src/pages/Orders/OrderDetail.jsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import TrackingModal from "../components/TrackingModal";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "@shared/FireBase";
+import TrackingModal from "../components/TrackingModal";
 import "./css/OrderDetail.css";
 
 export default function OrderDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // user hiện tại
   const userJson = localStorage.getItem("user");
   const currentUser = userJson ? JSON.parse(userJson) : null;
   const currentUserId = currentUser?.phone || currentUser?.id;
@@ -18,9 +17,11 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
-  const [showTracking, setShowTracking] = useState(false);
 
-  // ===== 1. listen đơn =====
+  // khi drone tới nơi thì bật nút "Đã nhận hàng"
+  const [droneArrived, setDroneArrived] = useState(false);
+
+  // listen đơn
   useEffect(() => {
     if (!id) return;
     const ref = doc(db, "orders", id);
@@ -41,20 +42,22 @@ export default function OrderDetailPage() {
           return;
         }
 
-        const normalized = normalizeStatus(data.status);
-        setOrder({ ...data, status: normalized });
+        setOrder({ ...data, status: normalizeStatus(data.status) });
         setLoading(false);
+
+        // nếu server đã về completed rồi thì khỏi hiện nút
+        if (data.status === "completed") {
+          setDroneArrived(false);
+        }
       },
       (err) => {
         console.error("listen order error:", err);
         setLoading(false);
       }
     );
-
     return () => unsub();
   }, [id, currentUserId]);
 
-  // ===== 2. hủy đơn =====
   const handleCancel = async () => {
     if (!order) return;
     if (!(order.status === "processing" || order.status === "preparing")) {
@@ -64,9 +67,7 @@ export default function OrderDetailPage() {
     const ok = window.confirm("Bạn chắc chắn muốn hủy đơn hàng này?");
     if (!ok) return;
     try {
-      await updateDoc(doc(db, "orders", order.id), {
-        status: "cancelled",
-      });
+      await updateDoc(doc(db, "orders", order.id), { status: "cancelled" });
       alert("Đã hủy đơn hàng.");
     } catch (err) {
       console.error(err);
@@ -74,7 +75,21 @@ export default function OrderDetailPage() {
     }
   };
 
-  // ===== 3. render điều kiện =====
+  // người dùng xác nhận đã nhận hàng → chuyển thẳng completed
+  const handleConfirmDelivered = async () => {
+    if (!order) return;
+    try {
+      await updateDoc(doc(db, "orders", order.id), {
+        status: "completed",
+      });
+      setDroneArrived(false);
+      alert("Đã xác nhận nhận hàng.");
+    } catch (err) {
+      console.error(err);
+      alert("Xác nhận thất bại.");
+    }
+  };
+
   if (loading) {
     return <div className="odetail-page">Đang tải đơn hàng...</div>;
   }
@@ -101,7 +116,6 @@ export default function OrderDetailPage() {
     );
   }
 
-  // ===== 4. tính toán =====
   const items = Array.isArray(order.items) ? order.items : [];
   const subtotal = order.subtotal || 0;
   const shippingFee = order.shippingFee || 0;
@@ -109,14 +123,10 @@ export default function OrderDetailPage() {
 
   const canCancel =
     order.status === "processing" || order.status === "preparing";
-  const canTrack = order.status === "shipping";
 
-  // hiện nút theo dõi ngay trong box địa chỉ
-  const canTrackHere =
-    order.status === "shipping" &&
-      order.delivery &&
-    order.delivery.lat &&
-    order.delivery.lng;
+  const displayAddress = order.orderAddress || order.address || "—";
+
+  const isShipping = order.status === "shipping";
 
   return (
     <div className="odetail-page">
@@ -132,21 +142,39 @@ export default function OrderDetailPage() {
               {order.receiverName || currentUser?.firstName || "Khách"}
               {order.receiverPhone ? ` (${order.receiverPhone})` : ""}
             </div>
-            <div className="odetail-address-detail">
-              {order.address || "—"}
-            </div>
+            <div className="odetail-address-detail">{displayAddress}</div>
           </div>
-
-          {canTrackHere && (
-            <button
-              className="odetail-track-inline"
-              onClick={() => setShowTracking(true)}
-            >
-              Theo dõi drone
-            </button>
-          )}
         </div>
       </div>
+
+      {/* Map tracking hiển thị luôn nếu đang giao và có tọa độ */}
+      {isShipping &&
+        order.delivery &&
+        order.delivery.lat &&
+        order.delivery.lng && (
+          <TrackingModal
+            order={order}
+            inline
+            onArrived={() => {
+              // chỉ show nút nếu là drone
+              if (order.shippingMethod === "drone") {
+                setDroneArrived(true);
+              }
+            }}
+          />
+        )}
+
+      {/* nếu drone đã tới thì hiện nút xác nhận */}
+      {droneArrived && (
+        <div className="odetail-actions">
+          <button
+            className="odetail-track-btn"
+            onClick={handleConfirmDelivered}
+          >
+            Đã nhận hàng
+          </button>
+        </div>
+      )}
 
       {/* Sản phẩm */}
       <div className="odetail-box">
@@ -239,20 +267,13 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
-      {/* Actions */}
-      <OrderActions
-        canCancel={canCancel}
-        canTrack={canTrack}
-        onCancel={handleCancel}
-        onTrack={() => setShowTracking(true)}
-      />
-
-      {/* Popup tracking */}
-      {showTracking && (
-        <TrackingModal
-          order={order}
-          onClose={() => setShowTracking(false)}
-        />
+      {/* nút hủy nếu còn được hủy */}
+      {canCancel && (
+        <div className="odetail-actions">
+          <button className="odetail-cancel" onClick={handleCancel}>
+            Hủy đơn hàng
+          </button>
+        </div>
       )}
     </div>
   );
@@ -275,7 +296,6 @@ function formatDateTime(ts) {
   return `${hh}:${mm} ${dd}/${MM}/${yyyy}`;
 }
 
-/* ===== timeline 4 trạng thái ===== */
 function OrderTimeline({ status = "processing", createdAt }) {
   if (status === "cancelled") {
     return (
@@ -302,7 +322,6 @@ function OrderTimeline({ status = "processing", createdAt }) {
     case "shipping":
       currentStep = 2;
       break;
-    case "delivered":
     case "completed":
       currentStep = 3;
       break;
@@ -336,29 +355,4 @@ function OrderTimeline({ status = "processing", createdAt }) {
       })}
     </div>
   );
-}
-
-/* ===== actions (hủy / theo dõi) ===== */
-function OrderActions({ canCancel, canTrack, onCancel, onTrack }) {
-  if (canTrack) {
-    return (
-      <div className="odetail-actions">
-        <button className="odetail-track-btn" onClick={onTrack}>
-          Theo dõi đơn hàng
-        </button>
-      </div>
-    );
-  }
-
-  if (canCancel) {
-    return (
-      <div className="odetail-actions">
-        <button className="odetail-cancel" onClick={onCancel}>
-          Hủy đơn hàng
-        </button>
-      </div>
-    );
-  }
-
-  return null;
 }

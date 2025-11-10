@@ -15,11 +15,11 @@ export default function CartPage() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // popup xoá
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
+  const userStr =
+    typeof window !== "undefined" ? localStorage.getItem("user") : null;
   const currentUser = userStr ? JSON.parse(userStr) : null;
   const userId = currentUser?.id;
 
@@ -30,8 +30,8 @@ export default function CartPage() {
       return;
     }
     const unsub = listenCart(userId, (data) => {
-      // data đã có _unitPrice, _lineTotal từ cartClient
       setItems(data);
+      // mặc định chọn tất cả item trong giỏ
       setSelectedIds(data.map((d) => d.cartDocId));
       setLoading(false);
     });
@@ -39,6 +39,17 @@ export default function CartPage() {
       if (unsub) unsub();
     };
   }, [userId, navigate]);
+
+  // chi nhánh hiện tại
+  const currentBranchId = localStorage.getItem("selectedBranchId");
+  const shownItems = currentBranchId
+    ? items.filter((it) => it.branchId === currentBranchId)
+    : items;
+
+  // ⭐ selectedIds dùng cho toàn giỏ, nên tạo 1 bản "selected trong chi nhánh đang xem"
+  const selectedVisibleIds = selectedIds.filter((id) =>
+    shownItems.some((it) => it.cartDocId === id)
+  );
 
   // ===== xoá =====
   const askDelete = (item) => {
@@ -66,13 +77,12 @@ export default function CartPage() {
     if (newQty < 1) return;
     try {
       await updateCartQty(userId, cartDocId, newQty);
-      // realtime sẽ bắn lại
     } catch (e) {
       console.error(e);
     }
   };
 
-  // tick / bỏ tick 1 món
+  // tick / bỏ tick 1 món (theo toàn giỏ, nhưng click ở phần hiển thị)
   const toggleSelect = (cartDocId) => {
     setSelectedIds((prev) =>
       prev.includes(cartDocId)
@@ -81,17 +91,28 @@ export default function CartPage() {
     );
   };
 
-  // tick all
+  // tick all (chỉ tick những món đang hiển thị)
   const toggleSelectAll = () => {
-    if (selectedIds.length === items.length) {
-      setSelectedIds([]);
+    if (selectedVisibleIds.length === shownItems.length) {
+      // bỏ tick hết món đang hiển thị
+      setSelectedIds((prev) =>
+        prev.filter(
+          (id) => !shownItems.some((it) => it.cartDocId === id)
+        )
+      );
     } else {
-      setSelectedIds(items.map((it) => it.cartDocId));
+      // tick tất cả món đang hiển thị + giữ nguyên mấy món branch khác
+      setSelectedIds((prev) => [
+        ...prev,
+        ...shownItems
+          .map((it) => it.cartDocId)
+          .filter((id) => !prev.includes(id)),
+      ]);
     }
   };
 
-  // tính tổng
-  const total = items.reduce((sum, it) => {
+  // ⭐ tính tổng chỉ trên shownItems
+  const total = shownItems.reduce((sum, it) => {
     if (!selectedIds.includes(it.cartDocId)) return sum;
     const line =
       typeof it._lineTotal === "number"
@@ -100,9 +121,15 @@ export default function CartPage() {
     return sum + line;
   }, 0);
 
+  // ⭐ tổng số lượng chỉ trên shownItems
+  const totalSelectedQty = shownItems.reduce((sum, it) => {
+    if (!selectedIds.includes(it.cartDocId)) return sum;
+    const qty = typeof it.quantity === "number" ? it.quantity : 1;
+    return sum + qty;
+  }, 0);
+
   // helper topping
   const renderTopping = (it) => {
-    // bây giờ cart đã gọn, nên chỉ còn selectedTopping hoặc selectedAddOn
     if (it.selectedTopping && typeof it.selectedTopping === "object") {
       return <span>Topping: {it.selectedTopping.label}</span>;
     }
@@ -118,12 +145,12 @@ export default function CartPage() {
     <div className="cart-page">
       <h1>Giỏ hàng</h1>
 
-      {items.length > 0 && (
+      {shownItems.length > 0 && (
         <div className="cart-select-all">
           <label className="ckb">
             <input
               type="checkbox"
-              checked={selectedIds.length === items.length}
+              checked={selectedVisibleIds.length === shownItems.length}
               onChange={toggleSelectAll}
             />
             <span className="ckb-ui" /> Chọn tất cả
@@ -133,13 +160,12 @@ export default function CartPage() {
 
       {loading ? (
         <p>Đang tải...</p>
-      ) : items.length === 0 ? (
+      ) : shownItems.length === 0 ? (
         <p>Giỏ hàng trống.</p>
       ) : (
         <div className="cart-list">
-          {items.map((it) => (
+          {shownItems.map((it) => (
             <div key={it.cartDocId} className="cart-item">
-              {/* checkbox */}
               <label className="ckb cart-check">
                 <input
                   type="checkbox"
@@ -149,7 +175,6 @@ export default function CartPage() {
                 <span className="ckb-ui" />
               </label>
 
-              {/* ảnh */}
               <div className="cart-thumb">
                 <img
                   src={it.image || "https://via.placeholder.com/80?text=Food"}
@@ -157,7 +182,6 @@ export default function CartPage() {
                 />
               </div>
 
-              {/* nội dung */}
               <div className="cart-body">
                 <h3>{it.name}</h3>
                 <div className="cart-meta">
@@ -165,7 +189,9 @@ export default function CartPage() {
                     <span>
                       Size: {it.selectedSize.label}{" "}
                       {it.selectedSize.price
-                        ? `(${it.selectedSize.price.toLocaleString("vi-VN")} đ)`
+                        ? `(${it.selectedSize.price.toLocaleString(
+                            "vi-VN"
+                          )} đ)`
                         : ""}
                     </span>
                   )}
@@ -176,12 +202,10 @@ export default function CartPage() {
                 </div>
               </div>
 
-              {/* đơn giá */}
               <div className="cart-unit-price">
                 {(it._unitPrice || it.price || 0).toLocaleString("vi-VN")} đ
               </div>
 
-              {/* qty */}
               <div className="cart-qty">
                 <button
                   onClick={() =>
@@ -209,7 +233,6 @@ export default function CartPage() {
                 </button>
               </div>
 
-              {/* tổng dòng */}
               <div className="cart-line-price">
                 {(it._lineTotal ||
                   (it.price || 0) * (it.quantity || 1)
@@ -217,7 +240,6 @@ export default function CartPage() {
                 đ
               </div>
 
-              {/* nút xoá */}
               <button className="cart-delete" onClick={() => askDelete(it)}>
                 Xóa
               </button>
@@ -233,10 +255,17 @@ export default function CartPage() {
         </div>
         <button
           className="cart-checkout"
-          disabled={selectedIds.length === 0}
-          onClick={() => navigate("/checkout", { state: { selectedIds } })}
+          disabled={selectedVisibleIds.length === 0}
+          onClick={() =>
+            navigate("/checkout", {
+              state: {
+                // ⭐ chỉ gửi những món đang hiển thị và được chọn
+                selectedIds: selectedVisibleIds,
+              },
+            })
+          }
         >
-          Thanh toán ({selectedIds.length})
+          Thanh toán ({totalSelectedQty})
         </button>
       </div>
 

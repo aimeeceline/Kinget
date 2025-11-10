@@ -1,88 +1,151 @@
-.rest-orders {
+/* vùng trang */
+.rest-orders-page {
+  padding: 18px 20px 40px;
+}
+
+/* thanh filter trên cùng */
+.rest-filter-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.fbtn {
+  border: 1px solid #e5e7eb;
   background: #fff;
-  border-radius: 14px;
-  padding: 16px 18px 18px;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: 0.12s;
+}
+.fbtn:hover {
+  background: #f3f4f6;
+}
+.fbtn.active {
+  background: #ff7a1a;
+  border-color: #ff7a1a;
+  color: #fff;
 }
 
-.rest-orders-header h1 {
-  font-size: 1.35rem;
-  margin-bottom: 4px;
-}
-
-.rest-orders-header p {
-  color: #6b7280;
-  font-size: 0.85rem;
-}
-
-/* table */
+/* bảng giống bên menu */
 .rest-orders-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 18px;
-  font-size: 0.9rem;
+  background: #fff;
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
 }
 
-.rest-orders-table thead {
-  background: #f3f4f6;
-}
-
-.rest-orders-table th,
-.rest-orders-table td {
+.rest-orders-table thead th {
+  background: #000;
+  color: #fff;
   text-align: left;
   padding: 10px 12px;
-  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  font-size: 14px;
 }
 
-.rest-orders-table th {
-  font-size: 0.77rem;
-  color: #4b5563;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+.rest-orders-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+  vertical-align: middle;
 }
 
-/* status badge */
-.status-badge {
+.rest-orders-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* link mã đơn */
+.order-link {
+  color: #0f766e;
+  text-decoration: none;
+  font-weight: 600;
+}
+.order-link:hover {
+  text-decoration: underline;
+}
+
+/* badge trạng thái */
+.order-badge {
   display: inline-block;
-  padding: 3px 12px;
+  padding: 3px 10px;
   border-radius: 999px;
-  font-size: 0.7rem;
+  font-size: 12px;
   font-weight: 500;
 }
 
-.status-pending {
-  background: rgba(252, 211, 77, 0.2);
-  color: #92400e;
+.badge-pending {
+  background: #fee2e2;
+  color: #b91c1c;
 }
-
-.status-preparing {
-  background: rgba(59, 130, 246, 0.15);
+.badge-preparing {
+  background: #ffedd5;
+  color: #c05621;
+}
+.badge-delivering {
+  background: #dbeafe;
   color: #1d4ed8;
 }
-
-.status-delivering {
-  background: rgba(14, 165, 233, 0.15);
-  color: #0369a1;
-}
-
-.status-done {
-  background: rgba(34, 197, 94, 0.15);
+.badge-done {
+  background: #dcfce7;
   color: #166534;
 }
+.badge-cancelled {
+  background: #e5e7eb;
+  color: #374151;
+}
+.badge-unknown {
+  background: #e5e7eb;
+  color: #111827;
+}
 
-.status-cancelled {
-  background: rgba(248, 113, 113, 0.15);
-  color: #b91c1c;
+/* pagination giống bên quản lý món ăn */
+.rest-orders-pagination {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  padding: 12px 10px 4px;
+  background: #fff;
+  border-radius: 0 0 12px 12px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.rest-orders-pagination button {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.1s;
+}
+
+.rest-orders-pagination button:hover {
+  background: #f3f4f6;
+}
+
+.rest-orders-pagination button.active {
+  background: #ff7a1a;
+  border-color: #ff7a1a;
+  color: #fff;
+}
+
+.rest-orders-pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* responsive nhẹ */
-@media (max-width: 768px) {
-  .rest-orders {
-    padding: 12px;
+@media (max-width: 720px) {
+  .rest-orders-table thead {
+    font-size: 13px;
   }
-  .rest-orders-table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
+  .rest-orders-table tbody td {
+    font-size: 13px;
   }
 }
