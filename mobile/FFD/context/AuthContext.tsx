@@ -6,7 +6,7 @@ export interface User {
   lastName?: string;
   phone?: string;
   email?: string;
-  role?: "user" | "restaurant";
+  role?: "user" | "restaurant"| "admin";
   avatar?: string;
 }
 

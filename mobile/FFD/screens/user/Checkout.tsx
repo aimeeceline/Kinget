@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,222 +6,209 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
   TextInput,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { useRoute } from "@react-navigation/native";
-
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
+import { CartContext } from "../../context/CartContext";
 import { useMessageBox } from "../../context/MessageBoxContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { db } from "../../data/FireBase";
+import { collection, addDoc, serverTimestamp, deleteDoc, doc } from "firebase/firestore";
+import { FoodOrderItem } from "../../types/food";
 
-import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../../data/FireBase"; // 🔥 đảm bảo bạn đã export db từ Firebase config
-
-import { FoodOrderItem } from "../../types/food"; // ← import đúng interface này
 function normalizeOrderItem(item: FoodOrderItem): FoodOrderItem {
   return {
     ...item,
     selectedSize: item.selectedSize ?? null,
     selectedBase: item.selectedBase ?? null,
-    selectedTopping: item.selectedTopping ?? null,
-    selectedAddOn: item.selectedAddOn ?? null,
+    selectedTopping: item.selectedTopping ?? [],
+    selectedAddOn: item.selectedAddOn ?? [],
     note: item.note ?? null,
   };
 }
 
 const CheckoutScreen: React.FC = () => {
-    const { cart, address, clearCart, setCart } = useCart();
-    const { user } = useAuth();
-    const { show } = useMessageBox();
-    const [receiverName, setReceiverName] = useState(user?.firstName || "");
-    const [receiverPhone, setReceiverPhone] = useState(user?.phone || "");
-    const [receiverAddress, setReceiverAddress] = useState(
-      address || "284 An Dương Vương, Phường 3, Quận 5, TP. Hồ Chí Minh"
-);
+  const navigation = useNavigation<any>();
+  const route = useRoute();
+  const { user } = useAuth();
+  const { show } = useMessageBox();
 
-    const route = useRoute();
+  const {
+    cartByBranch,
+    selectedBranch,
+    clearCart,
+  } = useContext(CartContext)!;
 
-    const { selectedFoods } = route.params as { selectedFoods: FoodOrderItem[] };
-    console.table(
-      selectedFoods.map((item, index) => ({
-        "#": index + 1,
-        "Tên món": item.name,
-        "Số lượng": item.quantity,
-        "Kích cỡ": item.selectedSize?.label || "-",
-        "Đế bánh": item.selectedBase?.label || "-",
-        "Topping": item.selectedTopping?.label || "-",
-        "Add-on": item.selectedAddOn?.label || "-",
-        "Ghi chú": item.note?.trim() || "-",
-      }))
-);
+  const { selectedFoods } = route.params as {
+    selectedFoods: FoodOrderItem[];
+  };
 
-    const navigation = useNavigation<any>();
-    
-
-  // ✅ State lựa chọn
+  const [currentBranch, setCurrentBranch] = useState<string | null>(selectedBranch);
+  const [receiverName, setReceiverName] = useState(user?.firstName || "");
+  const [receiverPhone, setReceiverPhone] = useState(user?.phone || "");
+  const [receiverAddress, setReceiverAddress] = useState(
+    "284 An Dương Vương, Phường 3, Quận 5, TP. Hồ Chí Minh"
+  );
   const [shippingMethod, setShippingMethod] = useState<"motorbike" | "drone">("motorbike");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "bank">("cash");
 
+  // Lấy lại branch đã chọn trong AsyncStorage (phòng reload app)
+  useEffect(() => {
+    AsyncStorage.getItem("selectedBranch").then((b) => {
+      if (b) setCurrentBranch(b);
+    });
+  }, []);
+
+  const branchCart = currentBranch ? cartByBranch[currentBranch] || [] : [];
+
   // ✅ Tính tổng tiền
-const subtotal = selectedFoods.reduce((sum, item) => {
+  const subtotal = selectedFoods.reduce((sum, item) => {
     const sizePrice = item.selectedSize?.price || 0;
     const basePrice = item.selectedBase?.price || 0;
-    const toppingPrice = item.selectedTopping?.price || 0;
-    const addOnPrice = item.selectedAddOn?.price || 0;
-    const totalItem =
-      (sizePrice + basePrice + toppingPrice + addOnPrice) * (item.quantity || 1);
-    return sum + totalItem;
+    const toppingPrice = Array.isArray(item.selectedTopping)
+      ? item.selectedTopping.reduce((s, t) => s + (t.price || 0), 0)
+      : 0;
+    const addOnPrice = Array.isArray(item.selectedAddOn)
+      ? item.selectedAddOn.reduce((s, a) => s + (a.price || 0), 0)
+      : 0;
+    return sum + (sizePrice + basePrice + toppingPrice + addOnPrice) * (item.quantity || 1);
   }, 0);
 
   const shippingFee = shippingMethod === "drone" ? 20000 : 10000;
   const total = subtotal + shippingFee;
 
-  
-  // ✅ Xử lý xác nhận thanh toán
+  // ✅ Đặt hàng
   const handlePlaceOrder = async () => {
-    if (!cart.length) {
-      show("Giỏ hàng đang trống!", "info");      
-    return;
+    if (!selectedFoods.length) {
+      show("Chưa chọn món nào để thanh toán!", "info");
+      return;
     }
+
     if (!receiverName.trim() || !receiverPhone.trim() || !receiverAddress.trim()) {
       show("Vui lòng nhập đầy đủ thông tin người nhận!", "info");
       return;
     }
-  try {
-    console.log("🧾 Bắt đầu tạo đơn hàng...");
 
-    // ✅ Chỉ nhận món được chọn
-    const normalizedCart = selectedFoods.map(normalizeOrderItem);
+    try {
+      const normalizedCart = selectedFoods.map(normalizeOrderItem);
 
-    const orderData = {
-    userId: user?.phone || "guest",
-    receiverName: receiverName.trim(),
-    receiverPhone: receiverPhone.trim(),
-    receiverAddress: receiverAddress.trim(),
-    items: normalizedCart,
-    shippingMethod: shippingMethod || "motorbike",
-    paymentMethod: paymentMethod || "cash",
-    subtotal: subtotal || 0,
-    shippingFee: shippingFee || 0,
-    total: total || 0,
-    status: "processing",
-    createdAt: serverTimestamp(),
-  };
-
-    // 🧭 Phân nhánh xử lý theo phương thức thanh toán
-    if (paymentMethod === "cash") {
-      // 💵 Thanh toán tiền mặt → tạo đơn ngay
-      await addDoc(collection(db, "orders"), {
-        ...orderData,
+      const orderData = {
+        userId: user?.id || "guest",
+        branchId: currentBranch,
+        receiverName: receiverName.trim(),
+        receiverPhone: receiverPhone.trim(),
+        receiverAddress: receiverAddress.trim(),
+        items: normalizedCart,
+        subtotal,
+        shippingFee,
+        total,
+        shippingMethod,
+        paymentMethod,
         status: "processing",
-      });
+        createdAt: serverTimestamp(),
+      };
 
-      show("Đặt hàng thành công! Đơn của bạn đang chờ xác nhận.", "success");
-      setCart((prev) =>
-        prev.filter(
-          (item) =>
-            !selectedFoods.some(
-              (sf) =>
-                sf.id === item.id &&
-                sf.selectedSize?.label === item.selectedSize?.label &&
-                sf.selectedBase?.label === item.selectedBase?.label &&
-                sf.selectedTopping?.label === item.selectedTopping?.label &&
-                sf.selectedAddOn?.label === item.selectedAddOn?.label &&
-                (sf.note?.trim() || "") === (item.note?.trim() || "")
-            )
-        )
-      );
-      navigation.navigate("MainTabs", { screen: "Đơn hàng" });
-    } else if (paymentMethod === "bank") {
-      // 💳 Thanh toán chuyển khoản → điều hướng sang trang giả lập
-      navigation.navigate("Transfer", {
-        orderData, // truyền dữ liệu đơn để xử lý tiếp
-      });
+      if (paymentMethod === "cash") {
+        // 💵 Thanh toán tiền mặt → tạo đơn hàng
+        await addDoc(collection(db, "orders"), orderData);
+
+        // Xóa món đã chọn khỏi giỏ
+        if (user?.id && currentBranch) {
+          for (const item of selectedFoods) {
+            if (item.firestoreId) {
+              await deleteDoc(
+                doc(db, "users", user.id, "carts", currentBranch, "items", item.firestoreId)
+              );
+            }
+          }
+        }
+
+        show("Đặt hàng thành công! Đơn của bạn đang được xử lý.", "success");
+        navigation.navigate("MainTabs", { screen: "Đơn hàng" });
+      } else {
+        // 💳 Thanh toán chuyển khoản → qua trang giả lập
+        navigation.navigate("Transfer", { orderData });
+      }
+    } catch (error) {
+      console.error("❌ Lỗi khi đặt hàng:", error);
+      show("Không thể tạo đơn hàng!", "error");
     }
-  } catch (error: any) {
-    console.error("❌ Lỗi khi tạo đơn hàng:", error);
-    show("Không thể tạo đơn hàng!", "error");
-  }
-};
-
+  };
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 150 }}
-      >
-    {/* 🏠 Thông tin người nhận */}
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Thông tin người nhận</Text>
+      <ScrollView contentContainerStyle={{ paddingBottom: 150 }}>
+        {/* 🏠 Thông tin người nhận */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Thông tin người nhận</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Họ và tên</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Nhập họ tên"
+              value={receiverName}
+              onChangeText={setReceiverName}
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Số điện thoại</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Nhập số điện thoại"
+              keyboardType="phone-pad"
+              value={receiverPhone}
+              onChangeText={setReceiverPhone}
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Địa chỉ</Text>
+            <TextInput
+              style={[styles.input, { height: 60 }]}
+              placeholder="Nhập địa chỉ giao hàng"
+              multiline
+              value={receiverAddress}
+              onChangeText={setReceiverAddress}
+            />
+          </View>
+        </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Họ và tên</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Nhập họ và tên người nhận"
-          value={receiverName}
-          onChangeText={setReceiverName}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Số điện thoại</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Nhập số điện thoại người nhận"
-          keyboardType="phone-pad"
-          value={receiverPhone}
-          onChangeText={setReceiverPhone}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Địa chỉ nhận hàng</Text>
-        <TextInput
-          style={[styles.input, { height: 60 }]}
-          placeholder="Nhập địa chỉ nhận hàng"
-          multiline
-          value={receiverAddress}
-          onChangeText={setReceiverAddress}
-        />
-      </View>
-    </View>
-
-
-
-        {/* 🛍 Danh sách món */}
+        {/* 🛒 Danh sách món */}
         <Text style={styles.sectionTitle}>Danh sách món</Text>
-            {selectedFoods.map((item, index) => (
-            <View key={index} style={styles.cartCard}>
-                <Image source={{ uri: item.image }} style={styles.foodImage} />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={styles.foodName}>{item.name}</Text>
-                <Text style={styles.foodDetail}>
-                    {item.selectedSize?.label}
-                    {item.selectedBase?.label ? ` • ${item.selectedBase.label}` : ""}
-                    {item.selectedTopping?.label ? ` • ${item.selectedTopping.label}` : ""}
-                    {item.selectedAddOn?.label ? ` • ${item.selectedAddOn.label}` : ""}
-                </Text>
-                <Text style={styles.priceText}>
-                    {(
-                    item.quantity *
-                    (
-                        (item.selectedSize?.price || 0) +
-                        (item.selectedBase?.price || 0) +
-                        (item.selectedTopping?.price || 0) +
-                        (item.selectedAddOn?.price || 0)
-                    )
-                    ).toLocaleString("vi-VN")} ₫
-                </Text>
-                </View>
+        {selectedFoods.map((item, index) => (
+          <View key={index} style={styles.cartCard}>
+            <Image source={{ uri: item.image }} style={styles.foodImage} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.foodName}>{item.name}</Text>
+              <Text style={styles.foodDetail}>
+                {item.selectedSize?.label}
+                {item.selectedBase?.label ? ` • ${item.selectedBase.label}` : ""}
+              </Text>
+              <Text style={styles.foodDetail}>
+                {Array.isArray(item.selectedAddOn) && item.selectedAddOn.length > 0
+                  ? "Thêm: " + item.selectedAddOn.map((a) => a.label).join(", ")
+                  : ""}
+              </Text>
+              <Text style={styles.priceText}>
+                {(
+                  (item.quantity || 1) *
+                  ((item.selectedSize?.price || 0) +
+                    (item.selectedBase?.price || 0) +
+                    (Array.isArray(item.selectedTopping)
+                      ? item.selectedTopping.reduce((s, t) => s + (t.price || 0), 0)
+                      : 0) +
+                    (Array.isArray(item.selectedAddOn)
+                      ? item.selectedAddOn.reduce((s, a) => s + (a.price || 0), 0)
+                      : 0))
+                ).toLocaleString("vi-VN")}{" "}
+                ₫
+              </Text>
             </View>
-            ))}
+          </View>
+        ))}
 
-        {/* 🚚 Phương thức vận chuyển */}
+        {/* 🚚 Vận chuyển */}
         <Text style={styles.sectionTitle}>Phương thức vận chuyển</Text>
         {[
           { key: "motorbike", label: "Xe máy", icon: "bicycle-outline" },
@@ -262,7 +249,7 @@ const subtotal = selectedFoods.reduce((sum, item) => {
           </TouchableOpacity>
         ))}
 
-        {/* 💳 Phương thức thanh toán */}
+        {/* 💳 Thanh toán */}
         <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
         {[
           { key: "cash", label: "Tiền mặt", icon: "cash-outline" },
@@ -303,7 +290,7 @@ const subtotal = selectedFoods.reduce((sum, item) => {
           </TouchableOpacity>
         ))}
 
-        {/* 💰 Chi tiết thanh toán */}
+        {/* 💰 Tổng thanh toán */}
         <Text style={styles.sectionTitle}>Chi tiết thanh toán</Text>
         <View style={styles.summaryBox}>
           <View style={styles.summaryRow}>
@@ -330,12 +317,9 @@ const subtotal = selectedFoods.reduce((sum, item) => {
         </View>
       </ScrollView>
 
-      {/* 🧡 Footer */}
+      {/* ✅ Footer */}
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.checkoutBtn}
-          onPress={handlePlaceOrder}
-        >
+        <TouchableOpacity style={styles.checkoutBtn} onPress={handlePlaceOrder}>
           <Text style={styles.checkoutText}>Xác nhận thanh toán</Text>
         </TouchableOpacity>
       </View>
@@ -345,38 +329,31 @@ const subtotal = selectedFoods.reduce((sum, item) => {
 
 export default CheckoutScreen;
 
-// ======================== STYLE ==========================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F6F6F6" },
-  scrollView: { paddingHorizontal: 16, paddingTop: 20 },
-
   section: {
-  backgroundColor: "#fff",
-  borderRadius: 10,
-  padding: 14,
-  marginBottom: 16,
-  shadowColor: "#000",
-  shadowOpacity: 0.05,
-  shadowRadius: 3,
-  elevation: 2,
-},
-sectionTitle: {
-  fontSize: 16,
-  fontWeight: "bold",
-  color: "#333",
-  marginBottom: 8,
-},
-inputGroup: { marginBottom: 10 },
-label: { fontSize: 14, color: "#555", marginBottom: 4 },
-input: {
-  borderWidth: 1,
-  borderColor: "#ccc",
-  borderRadius: 8,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  backgroundColor: "#fafafa",
-},
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 8,
+  },
+  inputGroup: { marginBottom: 10 },
+  label: { fontSize: 14, color: "#555", marginBottom: 4 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    backgroundColor: "#fafafa",
+  },
   cartCard: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -388,7 +365,6 @@ input: {
   foodName: { fontSize: 15, fontWeight: "bold", color: "#1a1a1a" },
   foodDetail: { fontSize: 13, color: "#666", marginTop: 4 },
   priceText: { fontSize: 14, fontWeight: "bold", color: "#E53935", marginTop: 6 },
-
   radioBox: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -410,7 +386,6 @@ input: {
   },
   radioLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   radioLabel: { fontSize: 15, fontWeight: "500" },
-
   summaryBox: {
     backgroundColor: "#fff",
     borderRadius: 10,
@@ -429,7 +404,6 @@ input: {
   },
   summaryLabel: { color: "#444", fontSize: 14 },
   summaryValue: { color: "#000", fontSize: 14 },
-
   footer: {
     position: "absolute",
     bottom: 0,
@@ -450,7 +424,3 @@ input: {
   },
   checkoutText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
 });
-function setCart(arg0: (prev: any) => any) {
-    throw new Error("Function not implemented.");
-}
-

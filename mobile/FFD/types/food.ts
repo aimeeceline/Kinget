@@ -23,28 +23,31 @@ export type Category = "Pizza" | "Burger" | "Drink";
 export interface Food {
   id: string;               // id document trong Firestore
   name: string;             // Tên món ăn
-  category: Category;  
-  price?: number;     // Loại món
-  description?: string;     // Mô tả (tuỳ chọn)
+  category: Category;       // Loại món
+  price?: number;           // Giá mặc định (nếu có)
+  description?: string;     // Mô tả
   image?: string;           // URL ảnh
 
   // 🍕 Pizza
   sizes?: Size[];           // Kích cỡ pizza
   bases?: Base[];           // Đế bánh
-  toppings?: Option[];      // Topping thêm
+  toppings?: Option[];      // Danh sách topping có thể chọn
 
   // 🍔 Burger
-  addOns?: Option[];        // Phần thêm như phô mai, sốt
-
+  addOns?: Option[];        // Danh sách phần thêm (add-on)
 }
+
 // 🍱 Dùng cho giỏ hàng
 export interface FoodOrderItem extends Food {
   selectedSize?: Size | null;
   selectedBase?: Base | null;
-  selectedTopping?: Option | null;
-  selectedAddOn?: Option | null;
+
+  // ✅ cho phép nhiều lựa chọn
+  selectedTopping?: Option[]; 
+  selectedAddOn?: Option[];
+
   note?: string | null;
   quantity: number;
   firestoreId?: string; 
+  signature?: string;   
 }
-

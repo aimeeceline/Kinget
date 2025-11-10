@@ -2,9 +2,9 @@
 // 🚀 Import dữ liệu vào Firestore (Node 20 ESM)
 // ===============================
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, setDoc, doc } from "firebase/firestore";
 import foods from "./foods.json" assert { type: "json" }; // ✅ import JSON chuẩn ESM
-
+import branchFoods from "./branchFoods.json" assert { type: "json" };
 // ✅ Cấu hình Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyC1bGfFwoCdsjJ6GsvO4F7loFqzDdjd4FE",
@@ -34,4 +34,20 @@ async function importFoods() {
   }
 }
 
-importFoods();
+async function importBranchFoods() {
+  console.log("🍕 Importing branchFoods...");
+  for (const branchId in branchFoods) {
+    const list = branchFoods[branchId];
+    for (const food of list) {
+      await setDoc(doc(db, `branches/${branchId}/branchFoods`, food.foodName), {
+        foodName: food.foodName,
+        isAvailable: food.isAvailable,
+        stock: food.stock,
+      });
+    }
+    console.log(`✅ Imported foods for branch: ${branchId}`);
+  }
+}
+
+//importFoods();
+importBranchFoods();

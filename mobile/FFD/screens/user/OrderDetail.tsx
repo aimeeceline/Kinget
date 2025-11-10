@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { db } from "../../data/FireBase";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { useAuth } from "../../context/AuthContext";
 import { useMessageBox } from "../../context/MessageBoxContext";
 
@@ -36,6 +36,28 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
 
     return () => unsubscribe();
   }, [order.id]);
+
+  // 🏪 Lấy tên chi nhánh từ Firestore khi có branchId
+useEffect(() => {
+  const fetchBranchName = async () => {
+    if (!orderData?.branchId) return;
+    try {
+      const branchRef = doc(db, "branches", orderData.branchId);
+      const branchSnap = await getDoc(branchRef);
+      if (branchSnap.exists()) {
+        setOrderData((prev: any) => ({
+          ...prev,
+          branchName: branchSnap.data().name || "Không rõ chi nhánh",
+        }));
+      }
+    } catch (err) {
+      console.warn("⚠️ Không thể lấy tên chi nhánh:", err);
+    }
+  };
+
+  fetchBranchName();
+}, [orderData?.branchId]);
+
 
   // 🧭 Hàm cập nhật trạng thái đơn hàng
   const updateStatus = async (newStatus: string) => {
@@ -82,6 +104,7 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
     processing: "#F9A825",
     preparing: "#db00ba",
     delivering: "#2196F3",
+    delivered: "#b39ddb",
     completed: "#4CAF50",
     cancelled: "#E53935",
   };
@@ -90,6 +113,7 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
     processing: "Chờ xác nhận",
     preparing: "Đang chuẩn bị",
     delivering: "Đang giao",
+    delivered: "Đã giao",
     completed: "Hoàn tất",
     cancelled: "Đã hủy",
   };
@@ -113,8 +137,11 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
 
         {/* 🏠 Thông tin người nhận */}
         <View style={styles.addressCard}>
-          <Text style={styles.addressTitle}>Thông tin người nhận</Text>
-          <View style={styles.addressRow}>
+          <View style={styles.infoHeader}>
+            <Ionicons name="receipt-outline" size={20} color="#F58220" />
+            <Text style={styles.infoTitle}>Thông tin người nhận</Text>
+          </View>
+        <View style={styles.addressRow}>
             <Ionicons name="location-outline" size={20} color="#F58220" />
             <View style={{ flex: 1, marginLeft: 8 }}>
               <Text style={styles.receiverName}>
@@ -122,7 +149,7 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
               </Text>
               <Text style={styles.receiverPhone}>
                 {orderData.receiverPhone
-                  ? `(+84) ${orderData.receiverPhone}`
+                  ? `${orderData.receiverPhone}`
                   : "(+84) 941 863 121"}
               </Text>
               <Text style={styles.receiverAddress}>
@@ -133,19 +160,23 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
           </View>
         </View>
 
-        {/* 🍔 Danh sách món ăn */}
+        {/* 🍔 Chi tiết đơn hàng theo chi nhánh */}
         <View style={styles.itemCard}>
           <View style={styles.infoHeader}>
-            <Ionicons name="fast-food-outline" size={20} color="#F58220" />
-            <Text style={styles.infoTitle}>Sản phẩm</Text>
+            <Ionicons name="storefront-outline" size={20} color="#F58220" />
+            <Text style={styles.infoTitle}>{orderData.branchName || "Không rõ"}</Text>
           </View>
 
           {orderData.items.map((item: any, index: number) => {
-            const options: string[] = [];
-            if (item.selectedSize?.label) options.push(`Size: ${item.selectedSize.label}`);
-            if (item.selectedBase?.label) options.push(`Đế: ${item.selectedBase.label}`);
-            if (item.selectedTopping?.label) options.push(`Topping: ${item.selectedTopping.label}`);
-            if (item.selectedAddOn?.label) options.push(`Thêm: ${item.selectedAddOn.label}`);
+            // ✅ Gom chi tiết topping & addon
+            const toppingList =
+              item.selectedTopping && item.selectedTopping.length > 0
+                ? item.selectedTopping.map((t: any) => t.label).join(", ")
+                : "";
+            const addOnList =
+              item.selectedAddOn && item.selectedAddOn.length > 0
+                ? item.selectedAddOn.map((a: any) => a.label).join(", ")
+                : "";
 
             return (
               <View key={index} style={styles.itemRow}>
@@ -154,17 +185,51 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
                   style={styles.itemImage}
                 />
                 <View style={{ flex: 1, marginLeft: 10 }}>
+                  {/* 🍕 Tên món */}
                   <Text style={styles.itemName}>{item.name}</Text>
-                  {options.length > 0 && (
-                    <Text style={styles.itemOptions}>{options.join(" • ")}</Text>
+
+                  {/* 📏 Kích cỡ & đế */}
+                  {item.selectedSize?.label && (
+                    <Text style={styles.itemOptions}>Size: {item.selectedSize.label}</Text>
                   )}
+                  {item.selectedBase?.label && (
+                    <Text style={styles.itemOptions}>Đế: {item.selectedBase.label}</Text>
+                  )}
+
+                  {/* 🧀 Topping */}
+                  {toppingList.length > 0 && (
+                    <Text style={styles.itemOptions}>Topping: {toppingList}</Text>
+                  )}
+
+                  {/* 🧂 Add-ons */}
+                  {addOnList.length > 0 && (
+                    <Text style={styles.itemOptions}>Thêm: {addOnList}</Text>
+                  )}
+
+                  {/* 📝 Ghi chú */}
                   {item.note && (
                     <Text style={styles.itemNote}>Ghi chú: {item.note}</Text>
                   )}
+
+                  {/* 🔢 Số lượng */}
                   <Text style={styles.itemQty}>x{item.quantity}</Text>
                 </View>
+
+                {/* 💰 Giá món */}
                 <Text style={styles.itemPrice}>
-                  {(item.price || 0).toLocaleString("vi-VN")}₫
+                  {(
+                    item.price ||
+                    ((item.selectedSize?.price || 0) +
+                      (item.selectedBase?.price || 0) +
+                      (item.selectedTopping?.reduce(
+                        (s: number, t: any) => s + (t.price || 0),
+                        0
+                      ) || 0) +
+                      (item.selectedAddOn?.reduce(
+                        (s: number, a: any) => s + (a.price || 0),
+                        0
+                      ) || 0))
+                  ).toLocaleString("vi-VN")}₫
                 </Text>
               </View>
             );
@@ -184,7 +249,12 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
                 {orderData.shippingFee?.toLocaleString("vi-VN")}₫
               </Text>
             </View>
-            <View style={[styles.totalRow, { borderTopWidth: 0.5, borderColor: "#eee", paddingTop: 6 }]}>
+            <View
+              style={[
+                styles.totalRow,
+                { borderTopWidth: 0.5, borderColor: "#eee", paddingTop: 6 },
+              ]}
+            >
               <Text style={[styles.totalLabel, { fontWeight: "600" }]}>Tổng cộng</Text>
               <Text style={styles.totalValue}>
                 {orderData.total?.toLocaleString("vi-VN")}₫
@@ -192,6 +262,7 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
             </View>
           </View>
         </View>
+
 
         {/* 💳 Thông tin đơn hàng */}
         <View style={styles.detailCard}>
@@ -237,7 +308,7 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
         </View>
       )}
 
-      {orderData.status === "delivering" && (
+      {orderData.status === "delivered" && (
         <View style={styles.footer}>
           <TouchableOpacity
             style={[styles.receiveButton, updating && { opacity: 0.6 }]}
@@ -257,25 +328,24 @@ const OrderDetailScreen = ({ route, navigation }: any) => {
 export default OrderDetailScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: "#fff", paddingHorizontal: 16 },
   loadingBox: { flex: 1, justifyContent: "center", alignItems: "center" },
   statusCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 15,
     backgroundColor: "#fff",
   },
   statusLabel: { fontSize: 16, fontWeight: "700" },
   statusSub: { color: "#888", fontSize: 13 },
-  addressCard: { margin: 12, padding: 12, backgroundColor: "#fff", borderRadius: 10, elevation: 1 },
+  addressCard: { marginTop: 20, backgroundColor: "#fff", borderRadius: 10, elevation: 1 },
   addressTitle: { fontWeight: "700", fontSize: 15, marginBottom: 5 },
   addressRow: { flexDirection: "row", alignItems: "center" },
   receiverName: { fontWeight: "600", fontSize: 15 },
   receiverPhone: { color: "#555", marginVertical: 2 },
   receiverAddress: { color: "#777" },
-  itemCard: { margin: 12, padding: 12, backgroundColor: "#fff", borderRadius: 10, elevation: 1 },
+  itemCard: { marginTop: 20, backgroundColor: "#fff", borderRadius: 10, elevation: 1 },
   infoHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  infoTitle: { fontWeight: "700", fontSize: 15, marginLeft: 6 },
+  infoTitle: { fontWeight: "700", fontSize: 15, marginLeft: 10 },
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -283,8 +353,13 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
     paddingVertical: 8,
   },
-  itemImage: { width: 60, height: 60, borderRadius: 8 },
-  itemName: { fontWeight: "600", color: "#333" },
+itemImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    resizeMode: "cover",
+    backgroundColor: "#f5f5f5",
+  },  itemName: { fontWeight: "600", color: "#333" },
   itemOptions: { color: "#555", fontSize: 12 },
   itemNote: { color: "#03AF14", fontSize: 12, fontStyle: "italic", marginTop: 2 },
   itemQty: { fontSize: 12, color: "#777" },
@@ -294,7 +369,7 @@ const styles = StyleSheet.create({
   totalLabel: { color: "#444" },
   totalValueSmall: { color: "#333", fontWeight: "500" },
   totalValue: { color: "#E53935", fontWeight: "bold", fontSize: 15 },
-  detailCard: { margin: 12, padding: 12, backgroundColor: "#fff", borderRadius: 10, elevation: 1 },
+  detailCard: { marginTop: 20, backgroundColor: "#fff", borderRadius: 10, elevation: 1 },
   detailRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: 4 },
   detailLabel: { color: "#444" },
   detailValue: { fontWeight: "500" },

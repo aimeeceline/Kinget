@@ -103,12 +103,8 @@ const handleLogin = async () => {
       // ✅ Lưu user vào Context
       setUser(userData);
 
-      // ✅ Điều hướng theo role
-      if (userData.role === "restaurant") {
-        navigation.navigate("RestaurantTabs");
-      } else {
-        navigation.navigate("MainTabs");
-      }
+      // ❌ Không cần navigate, AppNavigator sẽ tự vào đúng trang
+      show(`Đăng nhập thành công (${userData.role})!`, "success");
     } else {
       show("Số điện thoại hoặc mật khẩu không đúng!", "error");
     }
@@ -117,8 +113,6 @@ const handleLogin = async () => {
     show("Không thể đăng nhập!", "error");
   }
 };
-
-
   // ================== GIAO DIỆN ==================
   return (
     <SafeAreaView style={styles.container}>

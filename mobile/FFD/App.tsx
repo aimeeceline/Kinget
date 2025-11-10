@@ -7,15 +7,16 @@ import { MessageBoxProvider } from "./context/MessageBoxContext";
 
 const App: React.FC = () => {
   return (
-        <MessageBoxProvider>
-          <AuthProvider>
-            <CartProvider>
-                <NavigationContainer>
-                  <AppNavigator />
-                </NavigationContainer>
-            </CartProvider>
-          </AuthProvider>
-        </MessageBoxProvider>
+    // ✅ MessageBoxProvider nằm ngoài cùng để không bị che bởi modal
+    <MessageBoxProvider>
+      <AuthProvider>
+        <CartProvider>
+          <NavigationContainer>
+            <AppNavigator />
+          </NavigationContainer>
+        </CartProvider>
+      </AuthProvider>
+    </MessageBoxProvider>
   );
 };
 

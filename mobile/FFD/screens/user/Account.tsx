@@ -19,7 +19,7 @@ import { db } from "../../data/FireBase";
 
 const AccountScreen: React.FC = () => {
   const { user, setUser } = useAuth();
-  const { show } = useMessageBox();
+  const { show, confirm } = useMessageBox();
 
   const [sheet, setSheet] = useState<null | "profile" | "password">(null);
   const [formData, setFormData] = useState({
@@ -119,6 +119,8 @@ const AccountScreen: React.FC = () => {
 
   // ✅ Đăng xuất
   const handleLogout = async () => {
+    const ok = await confirm(`Xác nhận đăng xuất?`);
+      if (!ok) return;
     setUser(null);
     show("Đã đăng xuất!", "info");
   };

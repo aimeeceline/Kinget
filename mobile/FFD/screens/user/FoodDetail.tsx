@@ -9,25 +9,25 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRoute } from "@react-navigation/native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { CartContext } from "../../context/CartContext";
 import { useMessageBox } from "../../context/MessageBoxContext";
 import { Food } from "../../types/food";
 import * as Haptics from "expo-haptics";
+import { RouteProp, useRoute } from "@react-navigation/native";
+import { RootStackParamList } from "../../navigation/AppNavigator";
 
 const FoodDetailScreen: React.FC = () => {
-  const route = useRoute<any>();
-  const { food } = route.params as { food: Food };
+const route = useRoute<RouteProp<RootStackParamList, "FoodDetail">>();
+const { food, branchId, branchName } = route.params;
   const { addToCart } = useContext(CartContext)!;
   const { show } = useMessageBox();
 
   // ✅ Các state lựa chọn
- const [selectedSize, setSelectedSize] = useState<any>(food.sizes?.[0] || null);
+const [selectedSize, setSelectedSize] = useState<any>(food.sizes?.[0] || null);
 const [selectedBase, setSelectedBase] = useState<any>(food.bases?.[0] || null);
-const [selectedTopping, setSelectedTopping] = useState<any | null>(null);
-const [selectedAddOn, setSelectedAddOn] = useState<any | null>(null);
-const [note, setNote] = useState("");
+const [selectedTopping, setselectedTopping] = useState<any[]>([]);
+const [selectedAddOn, setselectedAddOn] = useState<any[]>([]);const [note, setNote] = useState("");
 const [quantity, setQuantity] = useState(1);
 const [inputHeight, setInputHeight] = useState(40);
 
@@ -35,39 +35,55 @@ const [inputHeight, setInputHeight] = useState(40);
 const basePrice =
   (selectedSize?.price || food.sizes?.[0]?.price || 0) +
   (selectedBase?.price || 0) +
-  (selectedTopping?.price || 0) +
-  (selectedAddOn?.price || 0);
+  selectedTopping.reduce((sum, t) => sum + t.price, 0) +
+  selectedAddOn.reduce((sum, a) => sum + a.price, 0);
 
 const total = basePrice * quantity;
 
   
   // ✅ Thêm món vào giỏ
   const handleAddToCart = () => {
+  if (!branchId) {
+    show("Lỗi: Không xác định chi nhánh!", "error");
+    return;
+  }
 
+  addToCart(
+    {
+      ...food,
+      price: basePrice,
+      selectedSize,
+      selectedBase,
+      selectedTopping,
+      selectedAddOn,
+      note,
+      quantity,
+    } as any,
+    branchId, // ✅ thêm chi nhánh
+    quantity
+  );
 
-    if (!addToCart) {
-      console.log("🎉 Thành công", `${food.name} đã được thêm vào giỏ hàng!`);
-      return;
-    }
-    addToCart(
-  {
-    
-    ...food,
-    price: basePrice, 
-    selectedSize,
-    selectedBase,
-    selectedTopping,
-    selectedAddOn,
-    note,
-    quantity,
-  },
-  quantity
-);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    show("Đã thêm vào giỏ hàng!", "success");
-    //show("Lỗi", "Không thể kết nối tới máy chủ!", "error");
-    //show("Thông tin", "Đơn hàng đang được xử lý...", "info");
-}
+  //Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  show("Đã thêm vào giỏ hàng!", "success");
+};
+
+// ✅ Toggle chọn / bỏ chọn topping hoặc addOn
+const toggleSelect = (item: any, type: "topping" | "addon") => {
+  if (type === "topping") {
+    setselectedTopping((prev) =>
+      prev.some((t) => t.label === item.label)
+        ? prev.filter((t) => t.label !== item.label)
+        : [...prev, item]
+    );
+  } else {
+    setselectedAddOn((prev) =>
+      prev.some((a) => a.label === item.label)
+        ? prev.filter((a) => a.label !== item.label)
+        : [...prev, item]
+    );
+  }
+};
+
   // ================================
   // 🚀 RENDER UI
   // ================================
@@ -163,36 +179,32 @@ const total = basePrice * quantity;
           )}
 
           {/* =========================
-              🍕 TOPPING (Pizza / Drink)
+              🍕 TOPPING (Pizza)
           ========================= */}
           {food.toppings && food.toppings.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Thêm topping</Text>
               <View style={styles.optionRow}>
-                {food.toppings.map((top, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    style={[
-                      styles.optionButton,
-                      selectedTopping?.label === top.label &&
-                        styles.optionActive,
-                    ]}
-                    onPress={() => setSelectedTopping(top)}
-                  >
-                    <Text
-                      style={[
-                        styles.optionText,
-                        selectedTopping?.label === top.label &&
-                          styles.optionTextActive,
-                      ]}
+                {food.toppings.map((top, i) => {
+                  const isSelected = selectedTopping.some((t) => t.label === top.label);
+                  return (
+                    <TouchableOpacity
+                      key={i}
+                      style={[styles.optionButton, isSelected && styles.optionActive]}
+                      onPress={() => toggleSelect(top, "topping")}
                     >
-                      {top.label}
-                    </Text>
-                    <Text style={styles.optionPrice}>
-                      +{top.price.toLocaleString("vi-VN")} ₫
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Text
+                        style={[styles.optionText, isSelected && styles.optionTextActive]}
+                      >
+                        {top.label}
+                      </Text>
+                      <Text style={styles.optionPrice}>
+                        +{top.price.toLocaleString("vi-VN")} ₫
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+
               </View>
             </>
           )}
@@ -200,42 +212,51 @@ const total = basePrice * quantity;
           {/* =========================
               🍔 ADD-ONS (Burger)
           ========================= */}
-          {food.category === "Burger" && food.addOns && (
-            <>
-              <Text style={styles.sectionTitle}>Tùy chọn thêm</Text>
-              <View style={styles.optionRow}>
-                {food.addOns.map((add, i) => (
+         {food.category === "Burger" && food.addOns && (
+          <>
+            <Text style={styles.sectionTitle}>Tùy chọn thêm</Text>
+            <View style={styles.optionRow}>
+              {food.addOns.map((add, i) => {
+                const isSelected = selectedAddOn.some((a) => a.label === add.label);
+                return (
                   <TouchableOpacity
                     key={i}
                     style={[
                       styles.optionButton,
-                      selectedAddOn?.label === add.label &&
-                        styles.optionActive,
+                      isSelected && styles.optionActive,
                     ]}
-                    onPress={() => setSelectedAddOn(add)}
+                    onPress={() => {
+                      // ✅ Toggle chọn / bỏ chọn
+                      setselectedAddOn((prev) =>
+                        prev.some((a) => a.label === add.label)
+                          ? prev.filter((a) => a.label !== add.label) // bỏ chọn
+                          : [...prev, add] // chọn mới
+                      );
+                    }}
                   >
                     <Text
                       style={[
                         styles.optionText,
-                        selectedAddOn?.label === add.label &&
-                          styles.optionTextActive,
+                        isSelected && styles.optionTextActive,
                       ]}
                     >
                       {add.label}
                     </Text>
-                    <Text style={styles.optionPrice}>
+                    <Text
+                      style={[
+                        styles.optionPrice,
+                        isSelected && styles.optionTextActive,
+                      ]}
+                    >
                       +{add.price.toLocaleString("vi-VN")} ₫
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </View>
-            </>
-          )}
+                );
+              })}
+            </View>
+          </>
+        )}
 
-          {/* =========================
-              🥤 ICE & SUGAR (Drink)
-          ========================= */}
-        
 
           {/* =========================
               ✏️ GHI CHÚ

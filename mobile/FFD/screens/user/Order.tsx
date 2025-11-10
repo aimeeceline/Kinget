@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -14,26 +14,48 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
 import { db } from "../../data/FireBase";
-import { collection, onSnapshot, query, where, orderBy } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot,
+  query,
+  where,
+  orderBy,
+  getDoc,
+  doc,
+} from "firebase/firestore";
 
+// ======================== Kiểu dữ liệu ========================
 interface OrderItem {
   id: string;
   date: string;
-  
   total: number;
-  status: "processing" | "preparing" | "delivering" | "delivered" | "completed" | "cancelled";
+  status:
+    | "processing"
+    | "preparing"
+    | "delivering"
+    | "delivered"
+    | "completed"
+    | "cancelled";
+  branchId?: string;
+  branchName?: string;
+  receiverAddress?: string;
+  shippingFee?: number;
+  paymentMethod?: string;
+  shippingMethod?: string;
   items: {
     name: string;
     quantity: number;
-    price?: number;
     image?: string;
-    selectedSize?: { price: number };
-    selectedBase?: { price: number };
-    selectedTopping?: { price: number };
-    selectedAddOn?: { price: number };
+    note?: string;
+    price?: number; 
+    selectedSize?: { label: string; price: number };
+    selectedBase?: { label: string; price: number };
+    selectedTopping?: { label: string; price: number }[];
+    selectedAddOn?: { label: string; price: number }[];
   }[];
 }
 
+// ======================== Tabs ========================
 const statusTabs = [
   { key: "processing", label: "Chờ xác nhận" },
   { key: "preparing", label: "Đang chuẩn bị" },
@@ -43,92 +65,73 @@ const statusTabs = [
   { key: "cancelled", label: "Đã hủy" },
 ];
 
+// ======================== Màn hình chính ========================
 const OrderScreen: React.FC<any> = ({ navigation }) => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<
-    "processing" | "delivering" | "delivered" |"completed" | "cancelled"
-  >("processing");
+  const [activeTab, setActiveTab] = useState<OrderItem["status"]>("processing");
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Lấy danh sách đơn hàng realtime từ Firestore
+  // 🔄 Lấy danh sách đơn hàng realtime
   useEffect(() => {
-    if (!user?.phone) return;
+    if (!user?.id && !user?.phone) return;
 
     const q = query(
       collection(db, "orders"),
-      where("userId", "==", user.phone),
+      where("userId", "==", user.id || user.phone),
       orderBy("createdAt", "desc")
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data: OrderItem[] = snapshot.docs.map((doc) => {
-        const order = doc.data();
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const tempOrders: OrderItem[] = [];
+
+      for (const docSnap of snapshot.docs) {
+        const order = docSnap.data();
         const createdAt = order.createdAt?.toDate?.() || new Date();
 
-        return {
-          id: doc.id,
+        let branchName = order.branchId || "Không rõ chi nhánh";
+        // 🔎 Lấy tên chi nhánh từ Firestore
+        if (order.branchId) {
+          try {
+            const branchRef = doc(db, "branches", order.branchId);
+            const branchSnap = await getDoc(branchRef);
+            if (branchSnap.exists()) {
+              branchName = branchSnap.data().name || branchName;
+            }
+          } catch {}
+        }
+
+        tempOrders.push({
+          id: docSnap.id,
           date: createdAt.toLocaleString("vi-VN"),
           total: order.total || 0,
           status: order.status || "processing",
-
-          // 🔹 Danh sách món chi tiết
-          items:
-            order.items?.map((it: any) => {
-              const basePrice =
-                it.price ||
-                (it.selectedSize?.price || 0) +
-                  (it.selectedBase?.price || 0) +
-                  (it.selectedTopping?.price || 0) +
-                  (it.selectedAddOn?.price || 0);
-
-              return {
-                name: it.name,
-                quantity: it.quantity,
-                price: basePrice,
-                image: it.image,
-                note: it.note || "", // 🟢 Ghi chú món
-                selectedSize: it.selectedSize || null,
-                selectedBase: it.selectedBase || null,
-                selectedTopping: it.selectedTopping || null,
-                selectedAddOn: it.selectedAddOn || null,
-              };
-            }) || [],
-
-          // 🔹 Thông tin vận chuyển & thanh toán
-          shippingFee: order.shippingFee || 15000,
-          subtotal:
-            order.subtotal ||
-            (order.total && order.shippingFee
-              ? order.total - order.shippingFee
-              : order.total || 0),
+          branchId: order.branchId,
+          branchName,
+          receiverAddress: order.receiverAddress || "Không có địa chỉ",
+          shippingFee: order.shippingFee || 0,
           shippingMethod: order.shippingMethod || "motorbike",
           paymentMethod: order.paymentMethod || "cash",
+          items: order.items || [],
+        });
+      }
 
-          // 🔹 Địa chỉ nhận hàng
-          receiverAddress:
-            order.receiverAddress ||
-            "20/11, Lê Ngã, Phường Phú Trung, Quận Tân Phú, TP. Hồ Chí Minh",
-        };
-
-      });
-      setOrders(data);
+      setOrders(tempOrders);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, [user]);
 
-  // ✅ Lọc theo trạng thái
+  // 🧩 Lọc đơn theo trạng thái
   const filteredOrders = orders.filter((o) => o.status === activeTab);
 
+  // ======================== Hiển thị ========================
   if (loading) {
     return (
       <View style={styles.loadingBox}>
         <ActivityIndicator size="large" color="#F58220" />
-        <Text style={{ color: "#555", marginTop: 10 }}>
-          Đang tải đơn hàng...
-        </Text>
+        <Text style={{ color: "#555", marginTop: 10 }}>Đang tải đơn hàng...</Text>
       </View>
     );
   }
@@ -166,6 +169,7 @@ const OrderScreen: React.FC<any> = ({ navigation }) => {
         </ScrollView>
       </View>
 
+
       {/* 📦 Danh sách đơn */}
       {filteredOrders.length === 0 ? (
         <View style={styles.emptyBox}>
@@ -189,17 +193,24 @@ const OrderScreen: React.FC<any> = ({ navigation }) => {
 
 export default OrderScreen;
 
-// 🧾 Card hiển thị từng đơn hàng (giống Shopee, có giá từng món)
+// ======================== Card đơn hàng ========================
 const OrderCard = ({ order, navigation }: { order: OrderItem; navigation: any }) => {
   const getStatusColor = (status: OrderItem["status"]) => {
     switch (status) {
-      case "processing": return "#F9A825"; // vàng
-      case "preparing": return "#db00daff"; // hồng
-      case "delivering": return "#2196F3"; // xanh dương
-      case "delivered": return "#ede100ff"; // xanh dương
-      case "completed": return "#4CAF50"; // xanh lá
-      case "cancelled": return "#E53935"; // đỏ
-      default: return "#333";
+      case "processing":
+        return "#F9A825";
+      case "preparing":
+        return "#db00da";
+      case "delivering":
+        return "#2196F3";
+      case "delivered":
+        return "#b39ddb";
+      case "completed":
+        return "#4CAF50";
+      case "cancelled":
+        return "#E53935";
+      default:
+        return "#333";
     }
   };
 
@@ -215,7 +226,7 @@ const OrderCard = ({ order, navigation }: { order: OrderItem; navigation: any })
           <View style={styles.mallBadge}>
             <Text style={styles.mallText}>Mall</Text>
           </View>
-          <Text style={styles.storeName}>  Giao hàng nhanh chóng</Text>
+            <Text style={styles.branchName}>  {order.branchName || "Chi nhánh chưa xác định"}</Text>
         </View>
         <Text style={[styles.orderStatus, { color: getStatusColor(order.status) }]}>
           {statusTabs.find((t) => t.key === order.status)?.label}
@@ -235,7 +246,13 @@ const OrderCard = ({ order, navigation }: { order: OrderItem; navigation: any })
             </Text>
             <Text style={styles.itemQty}>x{item.quantity}</Text>
             <Text style={styles.itemPrice}>
-              {(item.price || 0).toLocaleString("vi-VN")}₫
+              {(
+                item.price ||
+                ((item.selectedSize?.price || 0) +
+                  (item.selectedBase?.price || 0) +
+                  (item.selectedTopping?.reduce((s, t) => s + (t.price || 0), 0) || 0) +
+                  (item.selectedAddOn?.reduce((s, a) => s + (a.price || 0), 0) || 0))
+              ).toLocaleString("vi-VN")}₫
             </Text>
           </View>
         </View>
@@ -254,7 +271,7 @@ const OrderCard = ({ order, navigation }: { order: OrderItem; navigation: any })
   );
 };
 
-// 🎨 Style
+// ======================== Styles ========================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   tabWrapper: { marginBottom: 10 },
@@ -296,7 +313,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   mallText: { color: "#fff", fontWeight: "bold", fontSize: 11 },
-  storeName: { fontWeight: "600", fontSize: 14, color: "#222" },
+  branchName: { fontWeight: "600", fontSize: 14, color: "#222" },
   orderStatus: { fontWeight: "bold", fontSize: 13 },
 
   itemRow: {
