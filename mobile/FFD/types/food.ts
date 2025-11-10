@@ -49,4 +49,5 @@ export interface FoodOrderItem extends Food {
   note?: string | null;
   quantity: number;
   firestoreId?: string; 
+  signature?: string;   
 }

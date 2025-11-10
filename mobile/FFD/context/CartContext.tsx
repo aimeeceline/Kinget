@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import { FoodOrderItem } from "../types/food";
 import { db } from "../data/FireBase";
 import { useAuth } from "./AuthContext";
@@ -6,207 +12,302 @@ import { useMessageBox } from "./MessageBoxContext";
 import {
   collection,
   doc,
-  addDoc,
   setDoc,
   deleteDoc,
   onSnapshot,
   getDocs,
+  addDoc,
 } from "firebase/firestore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// 🧩 Kiểu dữ liệu context
 interface CartContextType {
-  cart: FoodOrderItem[];
-  addToCart: (food: FoodOrderItem, quantity?: number) => void;
-  removeFromCart: (index: number) => void;
-  handleRemoveItem: (index: number) => Promise<void>;
-  clearCart: () => void;
-  getTotalItems: () => number;
-  increaseQtyInCart: (index: number) => void;
-  decreaseQtyInCart: (index: number, handleRemoveItem?: (index: number) => Promise<void>) => void;
-  setCart: React.Dispatch<React.SetStateAction<FoodOrderItem[]>>;
+  cartByBranch: Record<string, FoodOrderItem[]>;
+  selectedBranch: string | null;
+  setSelectedBranch: (branchId: string) => void;
+  addToCart: (
+    food: FoodOrderItem,
+    branchId: string,
+    quantity?: number
+  ) => Promise<void>;
+  removeFromCart: (branchId: string, index: number) => Promise<void>;
+  handleRemoveItem: (branchId: string, index: number) => Promise<void>;
+  clearCart: (branchId?: string) => Promise<void>;
+  getTotalItems: (branchId?: string) => number;
+  increaseQtyInCart: (branchId: string, index: number) => Promise<void>;
+  decreaseQtyInCart: (branchId: string, index: number) => Promise<void>;
   address: string | null;
   setAddress: (newAddress: string) => void;
 }
 
-// 🧩 Context khởi tạo
-export const CartContext = createContext<CartContextType>({
-  cart: [],
-  setCart: () => {},
-  addToCart: () => {},
-  removeFromCart: () => {},
-  handleRemoveItem: async (index: number) => {},
-  clearCart: () => {},
-  getTotalItems: () => 0,
-  increaseQtyInCart: () => {},
-  decreaseQtyInCart: () => {},
-  address: null,
-  setAddress: () => {},
-});
+export const CartContext = createContext<CartContextType>({} as any);
+export const useCart = () => useContext(CartContext);
 
-// ✅ Hook tiện lợi
-export const useCart = () => {
-  const ctx = useContext(CartContext);
-  if (!ctx) throw new Error("useCart must be used inside <CartProvider />");
-  return ctx;
-};
-
-
-
-// 🧩 Provider chính
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
-  const { show, confirm} = useMessageBox();
-  const [cart, setCart] = useState<FoodOrderItem[]>([]);
+  const { show, confirm } = useMessageBox();
+
+  const [cartByBranch, setCartByBranch] = useState<Record<string, FoodOrderItem[]>>({});
+  const [selectedBranch, setSelectedBranchState] = useState<string | null>(null);
   const [address, setAddress] = useState<string>(
     "284 An Dương Vương, Phường 3, Quận 5, TP. Hồ Chí Minh"
   );
 
-  // 🔁 Lắng nghe realtime Firestore
+  const setSelectedBranch = (branchId: string) => {
+    setSelectedBranchState(branchId);
+    AsyncStorage.setItem("selectedBranch", branchId);
+  };
+
+  useEffect(() => {
+    AsyncStorage.getItem("selectedBranch").then((b) => {
+      if (b) setSelectedBranchState(b);
+    });
+  }, []);
+
+  // 🔁 Lắng nghe realtime
   useEffect(() => {
     if (!user?.id) {
-      setCart([]);
+      setCartByBranch({});
       return;
     }
 
-    const cartRef = collection(db, "users", user.id, "cart");
-    const unsubscribe = onSnapshot(cartRef, (snapshot) => {
-      const list = snapshot.docs.map((doc) => ({
-        firestoreId: doc.id, // lưu lại ID Firestore
-        ...doc.data(),
-      })) as FoodOrderItem[];
-      setCart(list);
+    const unsubscribers: (() => void)[] = [];
+    const cartsRef = collection(db, "users", user.id, "carts");
+
+    console.log("👤 Đang theo dõi Firestore user:", user.id);
+
+    const unsubscribeMain = onSnapshot(cartsRef, (branchSnaps) => {
+      const branchIds = branchSnaps.docs.map((d) => d.id);
+      console.log("🔥 Firestore cập nhật branches:", branchIds);
+
+      branchSnaps.docChanges().forEach((change) => {
+        const branchId = change.doc.id;
+        console.log("📡 Branch change:", branchId, change.type);
+
+        const itemsRef = collection(
+          db,
+          "users",
+          user.id,
+          "carts",
+          branchId,
+          "items"
+        );
+        const unsubscribeItems = onSnapshot(itemsRef, (snap) => {
+          const items = snap.docs.map((d) => ({
+            firestoreId: d.id,
+            ...d.data(),
+          })) as FoodOrderItem[];
+
+          console.log(`📦 ${branchId} có ${items.length} món`);
+          setCartByBranch((prev) => ({
+            ...prev,
+            [branchId]: items,
+          }));
+        });
+        unsubscribers.push(unsubscribeItems);
+      });
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeMain();
+      unsubscribers.forEach((u) => u());
+    };
   }, [user?.id]);
-      const getSignature = (food: FoodOrderItem) =>
-      `${food.id || food.name}-${food.selectedSize?.label || "noSize"}-${
-        food.selectedBase?.label || "noBase"
-      }-${food.selectedTopping?.label || "noTop"}-${food.selectedAddOn?.label || "noAdd"}-${
-        food.note?.trim() || "noNote"
-      }`;
 
+  // 🧮 Tạo key định danh món (đảm bảo thứ tự các phần tử không ảnh hưởng)
+const getSignature = (food: FoodOrderItem): string => {
+  const sortedToppings =
+    food.selectedTopping
+      ?.map((t) => t.label)
+      .sort()
+      .join("+") || "noTop";
 
-  // ✅ Thêm món vào Firestore + state
-  const addToCart = async (food: FoodOrderItem, quantity: number = 1) => {
+  const sortedAddOns =
+    food.selectedAddOn
+      ?.map((a) => a.label)
+      .sort()
+      .join("+") || "noAdd";
+
+  return `${food.name}-${food.selectedSize?.label || "noSize"}-${
+    food.selectedBase?.label || "noBase"
+  }-${sortedToppings}-${sortedAddOns}-${food.note?.trim() || "noNote"}`;
+};
+
+  // ✅ Thêm món vào giỏ (kiểm tra trùng qua cartByBranch local)
+const addToCart = async (
+  food: FoodOrderItem,
+  branchId: string,
+  quantity: number = 1
+): Promise<void> => {
+  if (!branchId) {
+    console.warn("⚠️ Thiếu branchId khi addToCart");
+    return;
+  }
+
   const signature = getSignature(food);
 
+  // ========================
+  // 👤 Nếu chưa đăng nhập → lưu local (state)
+  // ========================
   if (!user?.id) {
-    // 🔹 Nếu chưa đăng nhập, lưu local tạm
-    setCart((prev) => {
-      const existingIndex = prev.findIndex((i) => getSignature(i) === signature);
+    setCartByBranch((prev) => {
+      const branchCart = prev[branchId] || [];
+      const existingIndex = branchCart.findIndex(
+        (i) => getSignature(i) === signature
+      );
+
       if (existingIndex >= 0) {
-        const updated = [...prev];
+        // 🔁 Tăng số lượng nếu món đã có
+        const updated = [...branchCart];
         updated[existingIndex].quantity += quantity;
-        return updated;
+        return { ...prev, [branchId]: updated };
       }
-      return [...prev, { ...food, quantity }];
+
+      // 🆕 Nếu chưa có → thêm mới
+      return {
+        ...prev,
+        [branchId]: [...branchCart, { ...food, quantity }],
+      };
     });
     return;
   }
 
-  // 🔹 Firestore: lưu cart riêng cho từng user
-  const cartRef = collection(db, "users", user.id, "cart");
+  // ========================
+  // 🔥 Nếu có đăng nhập → lưu Firestore
+  // ========================
 
-  // Kiểm tra món đã tồn tại chưa
-  const existingItem = cart.find((i) => getSignature(i) === signature);
+  const branchCart = cartByBranch[branchId] || [];
+  const existingItem = branchCart.find(
+    (i) => i.signature === signature || getSignature(i) === signature
+  );
 
-  if (existingItem && existingItem.firestoreId) {
-    // 🔁 Cập nhật số lượng nếu trùng
-    const updated = { ...existingItem, quantity: existingItem.quantity + quantity };
-    await setDoc(doc(cartRef, existingItem.firestoreId), updated);
-  } else {
-    // 🆕 Thêm mới (có signature để truy vết)
-    const newItem = { ...food, quantity, signature };
-    await addDoc(cartRef, newItem);
+  const itemsRef = collection(db, "users", user.id, "carts", branchId, "items");
+
+  try {
+    if (existingItem && existingItem.firestoreId) {
+      // 🔁 Nếu món đã có → cập nhật số lượng
+      const itemRef = doc(
+        db,
+        "users",
+        user.id,
+        "carts",
+        branchId,
+        "items",
+        existingItem.firestoreId
+      );
+
+      await setDoc(
+        itemRef,
+        {
+          ...existingItem,
+          quantity: (existingItem.quantity || 1) + quantity,
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      );
+
+      console.log(`🔁 Cập nhật số lượng món "${food.name}"`);
+    } else {
+      // 🆕 Nếu chưa có → thêm mới vào Firestore
+      const newItem = {
+        ...food,
+        quantity,
+        signature,
+        createdAt: Date.now(),
+      };
+
+      await addDoc(itemsRef, newItem);
+      console.log(`🆕 Thêm mới món "${food.name}" vào giỏ hàng chi nhánh ${branchId}`);
+    }
+  } catch (error) {
+    console.error("❌ Lỗi khi thêm/cập nhật giỏ hàng:", error);
   }
 };
 
-    // ✅ Xóa món có confirm trước
-    const handleRemoveItem = async (index: number) => {
-      const item = cart[index];
-      const ok = await confirm(`Bạn có muốn xóa "${item.name}" khỏi giỏ hàng?`);
-      if (!ok) return;
+  const removeFromCart = async (branchId: string, index: number) => {
+    const item = cartByBranch[branchId]?.[index];
+    if (!item || !user?.id || !item.firestoreId) return;
+    const itemRef = doc(
+      db,
+      "users",
+      user.id,
+      "carts",
+      branchId,
+      "items",
+      item.firestoreId
+    );
+    await deleteDoc(itemRef);
+  };
 
-      await removeFromCart(index);
-      show("Đã xóa món khỏi giỏ hàng!", "success");
-    };
+  const handleRemoveItem = async (branchId: string, index: number) => {
+    const item = cartByBranch[branchId]?.[index];
+    if (!item) return;
+    const ok = await confirm(`Bạn có muốn xóa "${item.name}" khỏi giỏ hàng?`);
+    if (ok) await removeFromCart(branchId, index);
+  };
 
-  // ✅ Xóa món theo index
-  const removeFromCart = async (index: number) => {
-    if (!user?.id) {
-      setCart((prev) => prev.filter((_, i) => i !== index));
-      return;
-    }
-    const item = cart[index];
-    if (item.firestoreId) {
-      await deleteDoc(doc(db, "users", user.id, "cart", item.firestoreId));
+  const clearCart = async (branchId?: string) => {
+    if (!user?.id) return;
+    if (branchId) {
+      const itemsRef = collection(db, "users", user.id, "carts", branchId, "items");
+      const docs = await getDocs(itemsRef);
+      for (const d of docs.docs) await deleteDoc(d.ref);
+    } else {
+      for (const branchId in cartByBranch) {
+        const itemsRef = collection(db, "users", user.id, "carts", branchId, "items");
+        const docs = await getDocs(itemsRef);
+        for (const d of docs.docs) await deleteDoc(d.ref);
+      }
     }
   };
 
-  // ✅ Xóa toàn bộ giỏ
-  const clearCart = async () => {
-    if (!user?.id) return setCart([]);
-    const cartRef = collection(db, "users", user.id, "cart");
-    const docs = await getDocs(cartRef);
-    docs.forEach(async (d) => await deleteDoc(d.ref));
+  const increaseQtyInCart = async (branchId: string, index: number) => {
+    const item = cartByBranch[branchId]?.[index];
+    if (!item || !user?.id || !item.firestoreId) return;
+    const itemRef = doc(
+      db,
+      "users",
+      user.id,
+      "carts",
+      branchId,
+      "items",
+      item.firestoreId
+    );
+    await setDoc(itemRef, { ...item, quantity: item.quantity + 1 });
   };
 
-  // ✅ Đếm tổng số lượng
-  const getTotalItems = () => cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const decreaseQtyInCart = async (branchId: string, index: number) => {
+    const item = cartByBranch[branchId]?.[index];
+    if (!item || !user?.id || !item.firestoreId) return;
+    const itemRef = doc(
+      db,
+      "users",
+      user.id,
+      "carts",
+      branchId,
+      "items",
+      item.firestoreId
+    );
+    if (item.quantity <= 1) await handleRemoveItem(branchId, index);
+    else await setDoc(itemRef, { ...item, quantity: item.quantity - 1 });
+  };
 
-  // ✅ Tăng số lượng
-const increaseQtyInCart = async (index: number) => {
-  const item = cart[index];
-  const updated = { ...item, quantity: item.quantity + 1 };
-
-  if (!user?.id) {
-    // 👤 Guest mode — chỉ cập nhật local
-    setCart((prev) => {
-      const updatedCart = [...prev];
-      updatedCart[index] = updated;
-      return updatedCart;
-    });
-    return;
-  }
-
-  if (item.firestoreId) {
-    await setDoc(doc(db, "users", user.id, "cart", item.firestoreId), updated);
-  }
-};
-
-// ✅ Giảm số lượng (có confirm khi quantity = 1)
-const decreaseQtyInCart = async (index: number) => {
-  const item = cart[index];
-
-  // ⚠️ Nếu chỉ còn 1 → hỏi trước khi xóa
-  if (item.quantity <= 1) {
-    await handleRemoveItem(index);
-    return;
-  }
-
-  const updated = { ...item, quantity: item.quantity - 1 };
-
-  if (!user?.id) {
-    setCart((prev) => {
-      const updatedCart = [...prev];
-      updatedCart[index] = updated;
-      return updatedCart;
-    });
-    return;
-  }
-
-  if (item.firestoreId) {
-    await setDoc(doc(db, "users", user.id, "cart", item.firestoreId), updated);
-  }
-};
-
-
+  const getTotalItems = (branchId?: string) => {
+    if (!branchId)
+      return Object.values(cartByBranch)
+        .flat()
+        .reduce((sum, i) => sum + (i.quantity || 0), 0);
+    return (cartByBranch[branchId] || []).reduce(
+      (sum, i) => sum + (i.quantity || 0),
+      0
+    );
+  };
 
   return (
     <CartContext.Provider
       value={{
-        cart,
+        cartByBranch,
+        selectedBranch,
+        setSelectedBranch,
         addToCart,
         removeFromCart,
         handleRemoveItem,
@@ -214,7 +315,6 @@ const decreaseQtyInCart = async (index: number) => {
         getTotalItems,
         increaseQtyInCart,
         decreaseQtyInCart,
-        setCart,
         address,
         setAddress,
       }}

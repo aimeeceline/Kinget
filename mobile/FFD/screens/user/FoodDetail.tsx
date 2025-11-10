@@ -9,16 +9,17 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRoute } from "@react-navigation/native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { CartContext } from "../../context/CartContext";
 import { useMessageBox } from "../../context/MessageBoxContext";
 import { Food } from "../../types/food";
 import * as Haptics from "expo-haptics";
+import { RouteProp, useRoute } from "@react-navigation/native";
+import { RootStackParamList } from "../../navigation/AppNavigator";
 
 const FoodDetailScreen: React.FC = () => {
-  const route = useRoute<any>();
-  const { food } = route.params as { food: Food };
+const route = useRoute<RouteProp<RootStackParamList, "FoodDetail">>();
+const { food, branchId, branchName } = route.params;
   const { addToCart } = useContext(CartContext)!;
   const { show } = useMessageBox();
 
@@ -42,29 +43,30 @@ const total = basePrice * quantity;
   
   // ✅ Thêm món vào giỏ
   const handleAddToCart = () => {
+  if (!branchId) {
+    show("Lỗi: Không xác định chi nhánh!", "error");
+    return;
+  }
 
+  addToCart(
+    {
+      ...food,
+      price: basePrice,
+      selectedSize,
+      selectedBase,
+      selectedTopping,
+      selectedAddOn,
+      note,
+      quantity,
+    } as any,
+    branchId, // ✅ thêm chi nhánh
+    quantity
+  );
 
-    if (!addToCart) {
-      console.log("🎉 Thành công", `${food.name} đã được thêm vào giỏ hàng!`);
-      return;
-    }
-    addToCart(
-  {
-    
-    ...food,
-    price: basePrice, 
-    selectedSize,
-    selectedBase,
-    selectedTopping,
-    selectedAddOn,
-    note,
-    quantity,
-  } as any,
-  quantity
-);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    show("Đã thêm vào giỏ hàng!", "success");
-}
+  //Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  show("Đã thêm vào giỏ hàng!", "success");
+};
+
 // ✅ Toggle chọn / bỏ chọn topping hoặc addOn
 const toggleSelect = (item: any, type: "topping" | "addon") => {
   if (type === "topping") {

@@ -4,6 +4,8 @@ import { TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { getFocusedRouteNameFromRoute } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
+import { Food } from "../types/food";
+
 
 // ======= Các màn hình =======
 import GetStartedScreen from "../screens/auth/GetStarted";
@@ -26,11 +28,15 @@ export type RootStackParamList = {
   MainTabs: undefined;
   RestaurantTabs: undefined;
   AdminTabs: undefined; // 🆕 thêm route admin
-  FoodDetail: { food: any };
+  FoodDetail: {
+      food: Food;
+      branchId?: string;   // ✅ thêm dòng này
+      branchName?: string; // ✅ thêm dòng này
+    };  
   Cart: undefined;
   Address: undefined;
-  Checkout: undefined;
-  OrderDetail: undefined;
+  Checkout: { selectedFoods: any[]; branchId: string };
+  OrderDetail: { order: any };
   Transfer: undefined;
 };
 

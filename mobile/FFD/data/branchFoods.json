@@ -1,0 +1,38 @@
+{
+  "B1": [
+    { "foodName": "Pizza Hải Sản Cocktail", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Hải Sản Nhiệt Đới", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Tôm Cocktail", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Thịt Nguội Xúc Xích", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Thịt Xông Khói Đặc Biệt", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Thịt Nguội Kiểu Canada", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Gà Nướng 3 Vị", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Hải Sản Cao Cấp", "isAvailable": true, "stock": 10 },
+    { "foodName": "Burger 2 lớp bò, phô mai", "isAvailable": true, "stock": 10 },
+    { "foodName": "Burger Gà phô mai đặc biệt", "isAvailable": true, "stock": 10 },
+    { "foodName": "Burger Phi lê Cá phô mai", "isAvailable": true, "stock": 10 },
+    { "foodName": "Burger Big Mac", "isAvailable": true, "stock": 10 },
+    { "foodName": "Coca Cola", "isAvailable": true, "stock": 10 },
+    { "foodName": "Nước suối", "isAvailable": true, "stock": 10 },
+    { "foodName": "Sprite", "isAvailable": true, "stock": 10 },
+    { "foodName": "Fanta Cam", "isAvailable": true, "stock": 10 }
+  ],
+  "B2": [
+    { "foodName": "Pizza Hải Sản Cocktail", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Hải Sản Nhiệt Đới", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Tôm Cocktail", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Thịt Nguội Xúc Xích", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Thịt Xông Khói Đặc Biệt", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Thịt Nguội Kiểu Canada", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Gà Nướng 3 Vị", "isAvailable": true, "stock": 10 },
+    { "foodName": "Pizza Hải Sản Cao Cấp", "isAvailable": true, "stock": 10 },
+    { "foodName": "Burger 2 lớp bò, phô mai", "isAvailable": true, "stock": 10 },
+    { "foodName": "Burger Gà phô mai đặc biệt", "isAvailable": true, "stock": 10 },
+    { "foodName": "Burger Phi lê Cá phô mai", "isAvailable": true, "stock": 10 },
+    { "foodName": "Burger Big Mac", "isAvailable": true, "stock": 10 },
+    { "foodName": "Coca Cola", "isAvailable": true, "stock": 10 },
+    { "foodName": "Nước suối", "isAvailable": true, "stock": 10 },
+    { "foodName": "Sprite", "isAvailable": true, "stock": 10 },
+    { "foodName": "Fanta Cam", "isAvailable": true, "stock": 10 }
+  ]
+}
