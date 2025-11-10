@@ -6,15 +6,9 @@ import {
   Marker,
   Popup,
   Polyline,
-  useMap,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import "leaflet-routing-machine";
-import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
-// nếu bạn vẫn muốn thỉnh thoảng sync lên Firestore thì giữ 2 dòng này
-// import { doc, updateDoc } from "firebase/firestore";
-// import { db } from "@shared/FireBase";
 
 const restaurantIcon = new L.Icon({
   iconUrl: "/static/common/restaurant.png",
@@ -39,110 +33,178 @@ const bikeIcon = new L.Icon({
 
 const DEFAULT_ORIGIN = { lat: 10.762622, lng: 106.660172 };
 
-/**
- * Lấy route từ leaflet-routing-machine rồi trả về cho cha
- * chỉ để LẤY DỮ LIỆU, không để nó tự vẽ marker
- */
-function BikeRouteLoader({ origin, delivery, onRouteReady }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!origin || !delivery) return;
-
-    const control = L.Routing.control({
-      waypoints: [
-        L.latLng(origin.lat, origin.lng),
-        L.latLng(delivery.lat, delivery.lng),
-      ],
-      lineOptions: {
-        styles: [{ color: "#2563eb", weight: 5 }],
-      },
-      addWaypoints: false,
-      draggableWaypoints: false,
-      fitSelectedRoutes: false,
-      show: false,
-      createMarker: () => null, // không vẽ 2 pin xanh
-    }).addTo(map);
-
-    control.on("routesfound", (e) => {
-      const coords = e.routes[0].coordinates || [];
-      // trả route về cho cha
-      onRouteReady(coords);
-    });
-
-    return () => {
-      map.removeControl(control);
-    };
-  }, [map, origin, delivery, onRouteReady]);
-
-  return null;
+// tạo đường thẳng gồm nhiều điểm giữa origin và delivery
+function makeStraightPath(origin, delivery, steps = 40) {
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const lat = origin.lat + (delivery.lat - origin.lat) * t;
+    const lng = origin.lng + (delivery.lng - origin.lng) * t;
+    pts.push({ lat, lng });
+  }
+  return pts;
 }
 
-export default function TrackingModal({ order, onClose }) {
+export default function TrackingModal({
+  order,
+  onClose,
+  inline = false,
+  onArrived,
+}) {
   const hasDelivery = order?.delivery?.lat && order?.delivery?.lng;
   const origin = order?.origin?.lat ? order.origin : DEFAULT_ORIGIN;
   const isDrone = order?.shippingMethod === "drone";
   const isMotorbike = order?.shippingMethod === "motorbike";
 
-  // vị trí hiện tại từ order (lần đầu mở modal)
   const initialCurrent =
     order?.currentPos?.lat && order?.currentPos?.lng
       ? order.currentPos
       : origin;
 
-  // 👇 lưu center chỉ 1 lần để không bị reset zoom
   const initialCenterRef = useRef(
     hasDelivery
       ? [order.delivery.lat, order.delivery.lng]
       : [origin.lat, origin.lng]
   );
 
-  // state để giữ route xe máy
-  const [routeCoords, setRouteCoords] = useState([]);
-  // state để giữ marker đang chạy (local, không đụng Firestore)
+  // đường cho xe máy (thẳng)
+  const [bikePath, setBikePath] = useState([]);
+  // vị trí marker
   const [movingPos, setMovingPos] = useState(initialCurrent);
 
-  // khi đã có route thì animate local
+  // để clear interval
+  const timersRef = useRef([]);
+
+  // ===== tạo đường cho xe máy (thẳng) =====
   useEffect(() => {
     if (!isMotorbike) return;
-    if (!routeCoords || routeCoords.length === 0) return;
+    if (!hasDelivery) return;
+    const path = makeStraightPath(origin, order.delivery, 50);
+    setBikePath(path);
+  }, [isMotorbike, hasDelivery, origin, order]);
 
-    // tìm điểm gần nhất với vị trí hiện tại (để mở lại modal không chạy từ đầu)
-    const cur = movingPos;
-    let startIndex = 0;
-    let minDist = Infinity;
-    routeCoords.forEach((pt, idx) => {
-      const d =
-        (pt.lat - cur.lat) * (pt.lat - cur.lat) +
-        (pt.lng - cur.lng) * (pt.lng - cur.lng);
-      if (d < minDist) {
-        minDist = d;
-        startIndex = idx;
+  // ===== animate drone =====
+  useEffect(() => {
+    if (!isDrone) return;
+    if (!hasDelivery) return;
+
+    const start = origin;
+    const end = order.delivery;
+    const steps = 40;
+    let currentStep = 0;
+
+    const tId = setInterval(() => {
+      currentStep += 1;
+      const t = currentStep / steps;
+      const lat = start.lat + (end.lat - start.lat) * t;
+      const lng = start.lng + (end.lng - start.lng) * t;
+      setMovingPos({ lat, lng });
+
+      if (currentStep >= steps) {
+        clearInterval(tId);
+        onArrived && onArrived();
       }
-    });
+    }, 1000);
 
-    let i = startIndex;
-    const timer = setInterval(() => {
+    timersRef.current.push(tId);
+
+    return () => {
+      timersRef.current.forEach((id) => clearInterval(id));
+      timersRef.current = [];
+    };
+  }, [isDrone, hasDelivery, origin, order, onArrived]);
+
+  // ===== animate motorbike =====
+  useEffect(() => {
+    if (!isMotorbike) return;
+    if (!bikePath || bikePath.length === 0) return;
+
+    let i = 0;
+    const tId = setInterval(() => {
       i += 1;
-      if (i >= routeCoords.length) {
-        clearInterval(timer);
+      if (i >= bikePath.length) {
+        clearInterval(tId);
+        onArrived && onArrived();
         return;
       }
-      const point = routeCoords[i];
-      setMovingPos({ lat: point.lat, lng: point.lng });
+      const p = bikePath[i];
+      setMovingPos({ lat: p.lat, lng: p.lng });
+    }, 1000);
 
-      // nếu muốn sync Firestore mỗi n bước thì mở phần này
-      // if (i % 5 === 0) {
-      //   updateDoc(doc(db, "orders", order.id), {
-      //     currentPos: { lat: point.lat, lng: point.lng },
-      //   });
-      // }
-    }, 2000); // 2s
+    timersRef.current.push(tId);
 
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMotorbike, routeCoords]);
+    return () => {
+      clearInterval(tId);
+    };
+  }, [isMotorbike, bikePath, onArrived]);
 
+  // ===== render map =====
+  const mapContent = hasDelivery ? (
+    <MapContainer
+      center={initialCenterRef.current}
+      zoom={14}
+      style={{ height: "360px", width: "100%" }}
+    >
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+      {/* nhà hàng */}
+      <Marker position={[origin.lat, origin.lng]} icon={restaurantIcon}>
+        <Popup>Nhà hàng</Popup>
+      </Marker>
+
+      {/* khách */}
+      <Marker
+        position={[order.delivery.lat, order.delivery.lng]}
+        icon={customerIcon}
+      >
+        <Popup>Khách hàng</Popup>
+      </Marker>
+
+      {/* marker di chuyển */}
+      <Marker
+        position={[movingPos.lat, movingPos.lng]}
+        icon={isDrone ? droneIcon : bikeIcon}
+      >
+        <Popup>Đang giao</Popup>
+      </Marker>
+
+      {/* drone: line thẳng */}
+      {isDrone && (
+        <Polyline
+          positions={[
+            [origin.lat, origin.lng],
+            [order.delivery.lat, order.delivery.lng],
+          ]}
+          pathOptions={{ color: "red" }}
+        />
+      )}
+
+      {/* xe máy: line thẳng đã tạo */}
+      {isMotorbike && bikePath.length > 0 && (
+        <Polyline
+          positions={bikePath.map((p) => [p.lat, p.lng])}
+          pathOptions={{ color: "#2563eb" }}
+        />
+      )}
+    </MapContainer>
+  ) : (
+    <p>Đơn này chưa có vị trí giao để theo dõi.</p>
+  );
+
+  // ===== inline =====
+  if (inline) {
+    return (
+      <div className="odetail-box">
+        <h3 className="odetail-title">Theo dõi đơn hàng</h3>
+        <div style={{ borderRadius: 10, overflow: "hidden" }}>{mapContent}</div>
+        <p style={{ marginTop: 6, fontSize: 12, color: "#777" }}>
+          Vị trí chỉ mang tính minh họa.
+        </p>
+      </div>
+    );
+  }
+
+  // ===== popup =====
   return (
     <div className="odetail-modal-backdrop">
       <div className="odetail-modal">
@@ -150,74 +212,7 @@ export default function TrackingModal({ order, onClose }) {
           <h3>Theo dõi đơn hàng</h3>
           <button onClick={onClose}>✕</button>
         </div>
-        <div className="odetail-modal-body">
-          {hasDelivery ? (
-            <MapContainer
-              center={initialCenterRef.current}
-              zoom={14}
-              style={{ height: "360px", width: "100%" }}
-            >
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-
-              {/* nhà hàng */}
-              <Marker
-                position={[origin.lat, origin.lng]}
-                icon={restaurantIcon}
-              >
-                <Popup>Nhà hàng</Popup>
-              </Marker>
-
-              {/* khách */}
-              <Marker
-                position={[order.delivery.lat, order.delivery.lng]}
-                icon={customerIcon}
-              >
-                <Popup>Khách hàng</Popup>
-              </Marker>
-
-              {/* marker di chuyển */}
-              <Marker
-                position={[
-                  (isMotorbike ? movingPos.lat : initialCurrent.lat),
-                  (isMotorbike ? movingPos.lng : initialCurrent.lng),
-                ]}
-                icon={isDrone ? droneIcon : bikeIcon}
-              >
-                <Popup>Đang giao</Popup>
-              </Marker>
-
-              {/* drone → line thẳng */}
-              {isDrone && (
-                <Polyline
-                  positions={[
-                    [origin.lat, origin.lng],
-                    [order.delivery.lat, order.delivery.lng],
-                  ]}
-                  pathOptions={{ color: "red" }}
-                />
-              )}
-
-              {/* xe máy → vẽ line từ route để luôn thấy đường */}
-              {isMotorbike && routeCoords.length > 0 && (
-                <Polyline
-                  positions={routeCoords.map((pt) => [pt.lat, pt.lng])}
-                  pathOptions={{ color: "#2563eb" }}
-                />
-              )}
-
-              {/* xe máy → chỉ load route 1 lần, không animate ở đây */}
-              {isMotorbike && (
-                <BikeRouteLoader
-                  origin={origin}
-                  delivery={order.delivery}
-                  onRouteReady={setRouteCoords}
-                />
-              )}
-            </MapContainer>
-          ) : (
-            <p>Đơn này chưa có vị trí giao để theo dõi.</p>
-          )}
-        </div>
+        <div className="odetail-modal-body">{mapContent}</div>
       </div>
     </div>
   );

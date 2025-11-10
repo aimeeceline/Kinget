@@ -251,9 +251,7 @@ export default function AddressBranchModal({ open, onClose }) {
           <button className="kg-btn kg-btn-primary" onClick={handleSave}>
             Lưu
           </button>
-          <button className="kg-btn" onClick={onClose}>
-            Để sau
-          </button>
+          
         </div>
       </div>
     </div>

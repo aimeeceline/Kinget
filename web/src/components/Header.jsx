@@ -3,6 +3,8 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { FaUser, FaShoppingCart, FaSearch } from "react-icons/fa";
 import "./css/Header.css";
 import { useAuthContext as useAuth } from "../hooks/useAuth.jsx";
+import { db } from "@shared/FireBase";
+import { collection, getDocs } from "firebase/firestore";
 
 export default function Header({ cartCount = 0 }) {
   const [q, setQ] = useState("");
@@ -10,19 +12,51 @@ export default function Header({ cartCount = 0 }) {
   const [openCats, setOpenCats] = useState(false);
   const [openUser, setOpenUser] = useState(false);
 
+  // chi nhánh
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState(
+    localStorage.getItem("selectedBranchId") || ""
+  );
+  const [openBranch, setOpenBranch] = useState(false);
+
   const catsRef = useRef(null);
   const userRef = useRef(null);
+  const branchRef = useRef(null);
 
   const navigate = useNavigate();
-  const { user, logout } = useAuth();           // 👈 lấy user từ context
+  const { user, logout } = useAuth();
   const isAuthenticated = !!user;
   const displayName = user?.firstName || user?.email || "Tài khoản";
 
-const CATEGORIES = [
-  { to: "/category/burger", label: "Burger", img: "/static/cat/burger.png" },
-  { to: "/category/pizza",  label: "Pizza",  img: "/static/cat/pizza.png" },
-  { to: "/category/drink",  label: "Thức uống", img: "/static/cat/drink.png" },
-];
+  const CATEGORIES = [
+    { to: "/category/burger", label: "Burger", img: "/static/cat/burger.png" },
+    { to: "/category/pizza", label: "Pizza", img: "/static/cat/pizza.png" },
+    { to: "/category/drink", label: "Thức uống", img: "/static/cat/drink.png" },
+  ];
+
+  // load branches từ Firestore
+  useEffect(() => {
+    async function loadBranches() {
+      try {
+        const snap = await getDocs(collection(db, "branches"));
+        const list = snap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+        setBranches(list);
+
+        // nếu chưa chọn chi nhánh mà có data → set chi nhánh đầu
+        if (!selectedBranchId && list.length > 0) {
+          const firstId = list[0].id;
+          setSelectedBranchId(firstId);
+          localStorage.setItem("selectedBranchId", firstId);
+        }
+      } catch (err) {
+        console.error("load branches error", err);
+      }
+    }
+    loadBranches();
+  }, []); // chỉ load 1 lần
 
   // đóng dropdown khi click ra ngoài
   useEffect(() => {
@@ -32,6 +66,9 @@ const CATEGORIES = [
       }
       if (userRef.current && !userRef.current.contains(e.target)) {
         setOpenUser(false);
+      }
+      if (branchRef.current && !branchRef.current.contains(e.target)) {
+        setOpenBranch(false);
       }
     }
     document.addEventListener("mousedown", onDocClick);
@@ -51,6 +88,10 @@ const CATEGORIES = [
     if (!term) return;
     navigate(`/search?q=${encodeURIComponent(term)}`);
   }
+
+  // tên chi nhánh đang chọn
+  const selectedBranchName =
+    branches.find((b) => b.id === selectedBranchId)?.name || "Chọn chi nhánh";
 
   return (
     <header className={`ff-header ${scrolled ? "scrolled" : ""}`}>
@@ -91,6 +132,46 @@ const CATEGORIES = [
           </ul>
 
           <div className="ff-right">
+            {/* CHI NHÁNH */}
+            <div className="ff-branch" ref={branchRef}>
+              <button
+                type="button"
+                className="ff-branch-btn"
+                onClick={() => setOpenBranch((v) => !v)}
+              >
+                {selectedBranchName}
+              </button>
+              <div
+                className={`ff-branch-dd ${openBranch ? "show" : ""}`}
+                role="menu"
+              >
+                {branches.length === 0 ? (
+                  <div className="ff-branch-empty">Không có chi nhánh</div>
+                ) : (
+                  branches.map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      className={`ff-branch-item ${
+                        b.id === selectedBranchId ? "active" : ""
+                      }`}
+                      onClick={() => {
+                        setSelectedBranchId(b.id);
+                        localStorage.setItem("selectedBranchId", b.id);
+                        setOpenBranch(false);
+                        window.location.reload();
+                      }}
+                    >
+                      {b.name || b.id}
+                      {b.address ? (
+                        <span className="ff-branch-sub">{b.address}</span>
+                      ) : null}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
             <form className="ff-search" onSubmit={submitSearch}>
               <input
                 value={q}
@@ -105,7 +186,6 @@ const CATEGORIES = [
 
             {/* --- TÀI KHOẢN --- */}
             <div className="ff-user" ref={userRef}>
-              {/* nếu chưa login → đi thẳng /auth */}
               {!isAuthenticated ? (
                 <NavLink
                   to="/login"

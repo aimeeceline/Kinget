@@ -11,13 +11,13 @@ import CartPage from "../pages/Cart";
 import CheckoutPage from "../pages/Checkout";
 import OrdersPage from "../pages/Orders";
 import OrderDetailPage from "../pages/OrderDetail";
-
+import MessagePage from "../pages/MessageOrder";
 // === RESTAURANT pages ===
-import RestaurantLayout from "../layouts/RestaurantLayout.jsx";
-import RestaurantDashboard from "../pages/restaurant/Dashboard.jsx";
-import RestaurantOrders from "../pages/restaurant/Orders.jsx";
-import RestaurantMenu from "../pages/restaurant/Menu.jsx";
-
+import RestaurantLayout from "../layouts/RestaurantLayout";
+import RestaurantDashboard from "../pages/restaurant/Dashboard";
+import RestaurantOrders from "../pages/restaurant/Orders";
+import RestaurantMenu from "../pages/restaurant/Menu";
+import RestaurantOrderDetail from "../pages/restaurant/OrderDetails";
 //Admin pages
 //import AdminDashboard from "../pages/admin/Dashboard";
 //import AdminOrders from "../pages/admin/Orders";
@@ -35,7 +35,8 @@ export const router = createBrowserRouter([
         {path: "cart", element: <CartPage /> },
         {path: "checkout", element: <CheckoutPage /> },
         {path: "orders", element: <OrdersPage /> },
-        {path: "orders/:id", element: <OrderDetailPage /> },  
+        {path: "orders/:id", element: <OrderDetailPage /> },
+        {path: "message", element: <MessagePage /> },  
       // ... những trang user khác
     ],
   },
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
     { index: true, element: <RestaurantDashboard /> },
     { path: "orders", element: <RestaurantOrders /> },
     { path: "menu", element: <RestaurantMenu /> },
+    {path: "orders/:id", element: <RestaurantOrderDetail /> },
   ],
 },
 //   // ===== ADMIN =====

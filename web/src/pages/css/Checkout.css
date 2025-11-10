@@ -232,7 +232,7 @@
   font-size: 14px;
   outline: none;
   background: #fff;
-  width: 300px;
+  width: 900px;
 }
 
 .ck-address-input:focus {
@@ -266,5 +266,163 @@
 
   .ck-summary {
     border-radius: 16px 16px 0 0;
+  }
+}
+/* ===== Popup map chọn địa chỉ ===== */
+.ck-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000; /* cao hơn ck-summary */
+}
+
+.ck-modal {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px 18px 14px;
+  width: min(520px, 92vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.ck-modal h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ck-modal p {
+  margin: 0;
+  font-size: 13px;
+  color: #555;
+}
+
+/* khung map */
+.ck-modal .ck-map-box {
+  height: 260px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #eee;
+}
+
+/* react-leaflet container */
+.ck-modal .leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+.ck-modal-close {
+  align-self: flex-end;
+  background: #eee;
+  border: none;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ck-modal-close:hover {
+  background: #ddd;
+}
+.qr-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  display: grid;
+  place-items: center;
+  z-index: 4000;
+}
+.qr-box {
+  background: #fff;
+  border-radius: 14px;
+  padding: 18px 20px 14px;
+  width: min(360px, 94vw);
+  text-align: center;
+  box-shadow: 0 12px 30px rgba(0,0,0,.12);
+}
+.qr-img {
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+  margin: 12px auto;
+}
+.qr-close {
+  margin-top: 6px;
+  background: #f58220;
+  border: none;
+  color: #fff;
+  padding: 6px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.pay-success-page {
+  min-height: 60vh;
+  display: grid;
+  place-items: center;
+  background: #f8fafc;
+  padding: 32px 16px;
+}
+
+.pay-success-box {
+  background: #fff;
+  padding: 28px 26px 24px;
+  border-radius: 16px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+.pay-success-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.pay-success-text {
+  margin-top: 6px;
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.pay-success-sub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.pay-success-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.pay-success-btn {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  text-decoration: none;
+  font-size: 14px;
+  color: #0f172a;
+  background: #fff;
+}
+
+.pay-success-btn.primary {
+  background: #f58220;
+  border-color: #f58220;
+  color: #fff;
+}
+
+@media (max-width: 600px) {
+  .ck-modal {
+    width: 96vw;
   }
 }
