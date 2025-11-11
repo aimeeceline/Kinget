@@ -4,7 +4,12 @@ import { FaUser, FaShoppingCart, FaSearch } from "react-icons/fa";
 import "./css/Header.css";
 import { useAuthContext as useAuth } from "../hooks/useAuth.jsx";
 import { db } from "@shared/FireBase";
-import { collection, getDocs } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 
 export default function Header({ cartCount = 0 }) {
   const [q, setQ] = useState("");
@@ -34,11 +39,16 @@ export default function Header({ cartCount = 0 }) {
     { to: "/category/drink", label: "Thức uống", img: "/static/cat/drink.png" },
   ];
 
-  // load branches từ Firestore
+  // load branches từ Firestore (chỉ lấy isActive = true)
   useEffect(() => {
     async function loadBranches() {
       try {
-        const snap = await getDocs(collection(db, "branches"));
+        const q = query(
+          collection(db, "branches"),
+          where("isActive", "==", true)
+        );
+
+        const snap = await getDocs(q);
         const list = snap.docs.map((d) => ({
           id: d.id,
           ...d.data(),
@@ -56,6 +66,7 @@ export default function Header({ cartCount = 0 }) {
       }
     }
     loadBranches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // chỉ load 1 lần
 
   // đóng dropdown khi click ra ngoài
@@ -159,6 +170,7 @@ export default function Header({ cartCount = 0 }) {
                         setSelectedBranchId(b.id);
                         localStorage.setItem("selectedBranchId", b.id);
                         setOpenBranch(false);
+                        // nếu muốn reload toàn trang để các chỗ khác nhận branch mới
                         window.location.reload();
                       }}
                     >

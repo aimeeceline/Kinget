@@ -2,6 +2,8 @@
 import { createBrowserRouter } from "react-router-dom";
 import UserLayout from "../layouts/UserLayout";
 import AdminLayout from "../layouts/AdminLayout";
+import RestaurantLayout from "../layouts/RestaurantLayout";
+
 //User pages
 import Home from "../pages/Home";
 import LoginPage from "../pages/LoginPage.jsx";
@@ -13,14 +15,18 @@ import OrdersPage from "../pages/Orders";
 import OrderDetailPage from "../pages/OrderDetail";
 import MessagePage from "../pages/MessageOrder";
 // === RESTAURANT pages ===
-import RestaurantLayout from "../layouts/RestaurantLayout";
 import RestaurantDashboard from "../pages/restaurant/Dashboard";
 import RestaurantOrders from "../pages/restaurant/Orders";
 import RestaurantMenu from "../pages/restaurant/Menu";
 import RestaurantOrderDetail from "../pages/restaurant/OrderDetails";
+
 //Admin pages
-//import AdminDashboard from "../pages/admin/Dashboard";
-//import AdminOrders from "../pages/admin/Orders";
+import AdminDashboard from "../pages/admin/Dashboard";
+import AdminOrders from "../pages/admin/Orders";
+import AdminUsers from "../pages/admin/User";
+import AdminMenu from "../pages/admin/Menu";
+import AdminBranch from "../pages/admin/Branch";
+import AdminDrones from "../pages/admin/Drone";
 
 export const router = createBrowserRouter([
   // ===== USER =====
@@ -37,7 +43,6 @@ export const router = createBrowserRouter([
         {path: "orders", element: <OrdersPage /> },
         {path: "orders/:id", element: <OrderDetailPage /> },
         {path: "message", element: <MessagePage /> },  
-      // ... những trang user khác
     ],
   },
  // ===== RESTAURANT =====
@@ -51,14 +56,17 @@ export const router = createBrowserRouter([
     {path: "orders/:id", element: <RestaurantOrderDetail /> },
   ],
 },
-//   // ===== ADMIN =====
-//   {
-//     path: "/admin",
-//     element: <AdminLayout />,
-//     children: [
-//       { index: true, element: <AdminDashboard /> },
-//       //{ path: "orders", element: <AdminOrders /> },
-//       // ... thêm admin/product, admin/users nếu bạn muốn
-//     ],
-//   },
+  // ===== ADMIN =====
+  {
+    path: "/admin",
+    element: <AdminLayout />,
+    children: [
+      { index: true, element: <AdminDashboard /> },
+      { path: "orders", element: <AdminOrders /> },
+      {path: "foods", element: <AdminMenu /> },
+      {path: "users", element: <AdminUsers /> },
+      {path: "branches", element: <AdminBranch /> },
+      {path: "drones", element: <AdminDrones /> },
+    ],
+  },
 ]);

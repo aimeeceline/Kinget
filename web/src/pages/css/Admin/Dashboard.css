@@ -1,0 +1,142 @@
+.adm-dash-wrap {
+  padding: 18px 20px 40px;
+  background: #edf0f5;
+  min-height: 100vh;
+}
+
+.adm-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.adm-title {
+  font-size: 20px;
+  margin: 0 0 3px;
+}
+
+.adm-sub {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+/* cards */
+.adm-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.adm-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 10px 14px 12px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.adm-label {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin-bottom: 5px;
+}
+
+.adm-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* box recent */
+.adm-box {
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px 14px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.03);
+}
+
+.adm-box-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.adm-empty {
+  margin: 0;
+  color: #94a3b8;
+}
+
+/* table */
+.adm-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.adm-table thead th {
+  text-align: left;
+  padding: 7px 6px;
+  font-size: 12px;
+  color: #6b7280;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.adm-table tbody td {
+  padding: 7px 6px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 13px;
+}
+
+/* badge */
+.adm-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.adm-processing {
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+}
+.adm-preparing {
+  background: rgba(249, 115, 22, 0.08);
+  color: #c05621;
+}
+.adm-shipping {
+  background: rgba(14, 165, 233, 0.08);
+  color: #0369a1;
+}
+.adm-completed {
+  background: rgba(34, 197, 94, 0.08);
+  color: #166534;
+}
+.adm-cancelled {
+  background: rgba(107, 114, 128, 0.08);
+  color: #374151;
+}
+.adm-other {
+  background: rgba(148, 163, 184, 0.1);
+  color: #1f2937;
+}
+
+@media (max-width: 700px) {
+  .adm-dash-wrap {
+    padding-inline: 12px;
+  }
+  .adm-table thead {
+    display: none;
+  }
+  .adm-table tbody tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 6px;
+  }
+  .adm-table tbody td {
+    border-bottom: none;
+  }
+}
