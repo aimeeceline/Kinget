@@ -1,7 +1,12 @@
 // src/components/AddressBranchModal.jsx
 import { useEffect, useState } from "react";
 import { db } from "@shared/FireBase";
-import { collection, getDocs } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 import {
   MapContainer,
   TileLayer,
@@ -11,7 +16,8 @@ import {
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
-import "./css/AddressBranchModal.css"; 
+import "./css/AddressBranchModal.css";
+
 const defaultPos = [10.776889, 106.700806]; // HCM
 
 const userMarker = new L.Icon({
@@ -21,8 +27,7 @@ const userMarker = new L.Icon({
 });
 
 const branchMarker = new L.Icon({
-  iconUrl:
-    "static/common/restaurant.png", // khác icon 1 tí
+  iconUrl: "static/common/restaurant.png",
   iconSize: [30, 50],
   iconAnchor: [15, 50],
 });
@@ -59,26 +64,38 @@ export default function AddressBranchModal({ open, onClose }) {
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const snap = await getDocs(collection(db, "branches"));
+      // chỉ lấy chi nhánh đang active
+      const q = query(
+        collection(db, "branches"),
+        where("isActive", "==", true)
+      );
+      const snap = await getDocs(q);
       const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setBranches(list);
 
+      // lấy dữ liệu cũ trong localStorage
       const savedAddr = localStorage.getItem("deliveryAddress");
       const savedBranchId = localStorage.getItem("selectedBranchId");
       const savedLat = localStorage.getItem("deliveryLat");
       const savedLng = localStorage.getItem("deliveryLng");
 
       if (savedAddr) setAddress(savedAddr);
-      if (savedBranchId) setBranchId(savedBranchId);
 
+      // nếu branch cũ không còn trong danh sách active thì chọn cái đầu
+      const stillExists =
+        savedBranchId && list.some((b) => b.id === savedBranchId);
+
+      if (stillExists) {
+        setBranchId(savedBranchId);
+      } else if (list.length > 0) {
+        setBranchId(list[0].id);
+      }
+
+      // set vị trí
       if (savedLat && savedLng) {
         setPos([Number(savedLat), Number(savedLng)]);
       } else if (list[0]?.lat && list[0]?.lng) {
         setPos([list[0].lat, list[0].lng]);
-      }
-
-      if (!savedBranchId && list.length > 0) {
-        setBranchId(list[0].id);
       }
     })();
   }, [open]);
@@ -140,6 +157,14 @@ export default function AddressBranchModal({ open, onClose }) {
       alert("Chọn chi nhánh nha");
       return;
     }
+
+    // phòng trường hợp user cố sửa DOM chọn branch không active (unlikely)
+    const branch = branches.find((b) => b.id === branchId);
+    if (!branch) {
+      alert("Chi nhánh này hiện không hoạt động, chọn chi nhánh khác.");
+      return;
+    }
+
     localStorage.setItem("deliveryAddress", address);
     localStorage.setItem("selectedBranchId", branchId);
     localStorage.setItem("deliveryLat", String(pos[0]));
@@ -185,14 +210,15 @@ export default function AddressBranchModal({ open, onClose }) {
               setBranchId(id);
               const b = branches.find((x) => x.id === id);
               if (b?.lat && b?.lng) {
-                setPos([b.lat, b.lng]);
-                setFlyToPos([b.lat, b.lng]);
+                const newPos = [b.lat, b.lng];
+                setPos(newPos);
+                setFlyToPos(newPos);
               }
             }}
           >
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
-                {b.name} ({b.address})
+                {b.name} {b.address ? `(${b.address})` : ""}
               </option>
             ))}
           </select>
@@ -200,12 +226,17 @@ export default function AddressBranchModal({ open, onClose }) {
 
         {/* map */}
         <div className="kg-map">
-          <MapContainer center={pos} zoom={14} style={{ height: "100%", width: "100%" }}>
+          <MapContainer
+            center={pos}
+            zoom={14}
+            style={{ height: "100%", width: "100%" }}
+          >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
             {/* marker vị trí giao hàng */}
             <Marker position={pos} icon={userMarker} />
 
-            {/* marker tất cả chi nhánh */}
+            {/* marker chi nhánh active */}
             {branches
               .filter((b) => b.lat && b.lng)
               .map((b) => (
@@ -237,7 +268,6 @@ export default function AddressBranchModal({ open, onClose }) {
                 </Marker>
               ))}
 
-            {/* nếu cần bay đến vị trí mới */}
             {flyToPos && <FlyTo position={flyToPos} />}
             <ClickToSelect onSelect={handleSelectPos} />
           </MapContainer>
@@ -251,7 +281,6 @@ export default function AddressBranchModal({ open, onClose }) {
           <button className="kg-btn kg-btn-primary" onClick={handleSave}>
             Lưu
           </button>
-          
         </div>
       </div>
     </div>

@@ -1,0 +1,214 @@
+.ad-foods-page {
+  background: #edf0f5;
+  min-height: calc(100vh - 60px);
+}
+
+.ad-foods-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 14px;
+}
+
+.ad-foods-title {
+  font-size: 20px;
+  margin: 0 0 3px;
+}
+.ad-foods-sub {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.ad-foods-head-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.ad-foods-filter {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+}
+.ad-foods-filter select {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 13px;
+}
+
+.ad-add-btn {
+  background: #0ea5e9;
+  border: none;
+  color: #fff;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.12s;
+}
+.ad-add-btn:hover {
+  background: #0284c7;
+}
+
+/* TABLE */
+.ad-foods-table.pretty {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 18px 18px 0 0;
+  overflow: hidden;
+  box-shadow: 0 7px 18px rgba(15, 23, 42, 0.03);
+}
+
+.ad-foods-table.pretty thead th {
+  background: #000;
+  color: #fff;
+  text-align: left;
+  padding: 12px 10px;
+  font-size: 13.5px;
+}
+
+.ad-foods-table.pretty tbody td {
+  padding: 14px 10px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+  background: #fff;
+}
+
+/* ảnh */
+.ad-img-box {
+  width: 70px;
+  height: 70px;
+  border-radius: 12px;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  border: 1px solid #f3f4f6;
+}
+.ad-img-box img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.ad-food-name-cell {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* trạng thái pill */
+.ad-pill {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ad-pill.active {
+  background: #d1fae5;
+  color: #065f46;
+}
+.ad-pill.inactive {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* actions */
+.ad-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.ad-edit-btn {
+  background: #e0f2fe;
+  border: none;
+  color: #0f172a;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.ad-edit-btn:hover {
+  background: #bae6fd;
+}
+
+.ad-toggle-btn {
+  background: #0ea5e9;
+  border: none;
+  color: #fff;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.ad-toggle-btn.danger {
+  background: #ef4444;
+}
+.ad-toggle-btn:hover {
+  opacity: 0.9;
+}
+
+/* pagination */
+.ad-foods-pagination {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  background: #fff;
+  border-radius: 0 0 18px 18px;
+  border-top: 1px solid #f3f4f6;
+  padding: 10px 0 12px;
+  margin-bottom: 6px;
+}
+.ad-foods-pagination button {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.1s;
+}
+.ad-foods-pagination button:hover {
+  background: #f3f4f6;
+}
+.ad-foods-pagination button.active {
+  background: #ff7a1a;
+  color: #fff;
+  border-color: #ff7a1a;
+}
+.ad-foods-pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .ad-foods-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .ad-foods-head-right {
+    flex-wrap: wrap;
+  }
+  .ad-foods-table.pretty thead {
+    display: none;
+  }
+  .ad-foods-table.pretty tbody tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 10px;
+    padding: 10px;
+  }
+  .ad-foods-table.pretty tbody td {
+    border-bottom: none;
+    padding: 0;
+  }
+}
