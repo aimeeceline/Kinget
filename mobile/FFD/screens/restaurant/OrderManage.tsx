@@ -12,10 +12,19 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation, NavigationProp } from "@react-navigation/native";
+import { RootStackParamList } from "../../navigation/AppNavigator";
 import { db } from "../../data/FireBase";
-import { collection, onSnapshot, orderBy, query, updateDoc, doc } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot,
+  orderBy,
+  query,
+  updateDoc,
+  doc,
+} from "firebase/firestore";
 
-// 🟧 Trạng thái đơn hàng
+// ======================== Tabs trạng thái ========================
 const statusTabs = [
   { key: "processing", label: "Chờ xác nhận" },
   { key: "preparing", label: "Đang chuẩn bị" },
@@ -25,68 +34,71 @@ const statusTabs = [
   { key: "cancelled", label: "Đã hủy" },
 ];
 
-const RestaurantOrderScreen: React.FC<any> = ({ navigation }) => {
+const RestaurantOrderScreen: React.FC<{
+  navigation: NavigationProp<RootStackParamList>;
+}> = ({ navigation }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("processing");
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Lấy danh sách đơn hàng realtime
+  // 🔄 Lấy danh sách đơn hàng realtime
   useEffect(() => {
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-    const data = snapshot.docs.map((docSnap) => {
-      const raw = docSnap.data();
-      const createdAt = raw.createdAt?.toDate?.() || new Date();
+      const data = snapshot.docs.map((docSnap) => {
+        const raw = docSnap.data();
+        const createdAt = raw.createdAt?.toDate?.() || new Date();
 
-      // Chuẩn hoá danh sách món: đơn giá & thành tiền
-      const items = (raw.items || []).map((it: any) => {
-        const unit =
-          Number(it?.price) ||
-          Number(it?.selectedSize?.price || 0) +
-            Number(it?.selectedBase?.price || 0) +
-            Number(it?.selectedTopping?.price || 0) +
-            Number(it?.selectedAddOn?.price || 0);
+        // Chuẩn hoá item: đơn giá & thành tiền
+        const items = (raw.items || []).map((it: any) => {
+          const unit =
+            Number(it?.price) ||
+            Number(it?.selectedSize?.price || 0) +
+              Number(it?.selectedBase?.price || 0) +
+              Number(it?.selectedTopping?.price || 0) +
+              Number(it?.selectedAddOn?.price || 0);
 
-        const qty = Number(it?.quantity || 1);
+          const qty = Number(it?.quantity || 1);
+          return {
+            name: it?.name || "",
+            image: it?.image || "",
+            quantity: qty,
+            unitPrice: unit,
+            linePrice: unit * qty,
+            selectedSize: it?.selectedSize || null,
+            selectedBase: it?.selectedBase || null,
+            selectedTopping: it?.selectedTopping || null,
+            selectedAddOn: it?.selectedAddOn || null,
+            note: it?.note || "",
+          };
+        });
+
+        const subtotal = items.reduce(
+          (s: number, it: any) => s + Number(it.linePrice || 0),
+          0
+        );
+        const shippingFee = Number(raw?.shippingFee ?? 15000);
+        const total = subtotal + shippingFee;
+
         return {
-          name: it?.name || "",
-          image: it?.image || "",
-          quantity: qty,
-          unitPrice: unit,                 // đơn giá 1 món
-          linePrice: unit * qty,           // thành tiền của dòng
-          // giữ lại options nếu cần show
-          selectedSize: it?.selectedSize || null,
-          selectedBase: it?.selectedBase || null,
-          selectedTopping: it?.selectedTopping || null,
-          selectedAddOn: it?.selectedAddOn || null,
-          note: it?.note || "",
+          id: docSnap.id,
+          date: createdAt.toLocaleString("vi-VN"),
+          status: raw.status || "processing",
+          receiverAddress:
+            raw.receiverAddress ||
+            "20/11, Lê Ngã, Phường Phú Trung, Quận Tân Phú, TP.HCM",
+          shippingMethod: raw.shippingMethod || "other", // ✅ dùng để show label
+          items,
+          subtotal,
+          shippingFee,
+          total,
         };
       });
 
-      // Tính tiền hàng (subtotal) và tổng
-      const subtotal = items.reduce((s: number, it: any) => s + Number(it.linePrice || 0), 0);
-      const shippingFee = Number(raw?.shippingFee ?? 15000);
-      const total = subtotal + shippingFee; // ưu tiên tự tính
-
-      return {
-        id: docSnap.id,
-        date: createdAt.toLocaleString("vi-VN"),
-        status: raw.status || "processing",
-        userName: raw.userName || "Khách hàng",
-        phone: raw.userId || "",
-        address:
-          raw.receiverAddress ||
-          "20/11, Lê Ngã, Phường Phú Trung, Quận Tân Phú, TP.HCM",
-
-        items,                 // đã kèm unitPrice & linePrice
-        subtotal,
-        shippingFee,
-        total,
-      };
+      setOrders(data);
+      setLoading(false);
     });
-    setOrders(data);
-    setLoading(false);
-  });
+
     return () => unsubscribe();
   }, []);
 
@@ -112,49 +124,48 @@ const RestaurantOrderScreen: React.FC<any> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-
-      <View style={[styles.header]}>
+      {/* Header */}
+      <View style={styles.header}>
         <Text style={styles.headerTitle}>Quản lý đơn hàng</Text>
         <Ionicons name="receipt-outline" size={30} color="#fff" />
       </View>
       <StatusBar barStyle="light-content" backgroundColor="#F58220" />
+
+      {/* Tabs */}
       <View style={styles.tabWrapper}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.tabScroll}
-              >
-        {statusTabs.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[
-              styles.tabButton,
-              activeTab === tab.key && styles.activeTabButton,
-            ]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <Text
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabScroll}
+        >
+          {statusTabs.map((tab) => (
+            <TouchableOpacity
+              key={tab.key}
               style={[
-                styles.tabText,
-                activeTab === tab.key && styles.activeTabText,
+                styles.tabButton,
+                activeTab === tab.key && styles.activeTabButton,
               ]}
+              onPress={() => setActiveTab(tab.key)}
             >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === tab.key && styles.activeTabText,
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
-      {/* 📦 Danh sách đơn */}
-
-      <View style={styles.emptyBox}>
-      
+      {/* Danh sách đơn */}
       <FlatList
         data={filteredOrders}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 16 }}
         renderItem={({ item }) => (
           <OrderCard
             order={item}
@@ -164,58 +175,86 @@ const RestaurantOrderScreen: React.FC<any> = ({ navigation }) => {
             onConfirm={() => handleUpdateStatus(item.id, "preparing")}
             onDeliver={() => handleUpdateStatus(item.id, "delivering")}
             onComplete={() => handleUpdateStatus(item.id, "completed")}
+            onReject={() => handleUpdateStatus(item.id, "cancelled")}
           />
         )}
-      />  
-      </View>
+        ListEmptyComponent={
+          <View style={styles.emptyBox}>
+            <Ionicons name="document-outline" size={48} color="#aaa" />
+            <Text style={styles.emptyText}>Chưa có đơn hàng nào</Text>
+          </View>
+        }
+      />
     </SafeAreaView>
   );
 };
 
 export default RestaurantOrderScreen;
 
-/* 🧾 Card hiển thị từng đơn hàng */
+/* ======================== Card hiển thị từng đơn ======================== */
 const OrderCard = ({
   order,
   onViewDetail,
   onConfirm,
   onDeliver,
   onComplete,
+  onReject,
 }: {
   order: any;
   onViewDetail: () => void;
   onConfirm: () => void;
   onDeliver: () => void;
   onComplete: () => void;
+  onReject: () => void;
 }) => {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "processing":
-        return "#F9A825"; // vàng
+        return "#F9A825";
       case "preparing":
-        return "#E040FB"; // tím hồng
+        return "#E040FB";
       case "delivering":
-        return "#2196F3"; // xanh dương
+        return "#2196F3";
       case "delivered":
-        return "#00d6cfff"; // xanh dương
+        return "#00d6cf";
       case "completed":
-        return "#4CAF50"; // xanh lá
+        return "#4CAF50";
       case "cancelled":
-        return "#E53935"; // đỏ
+        return "#E53935";
       default:
         return "#333";
     }
   };
 
+  const getShippingLabel = (method?: string) => {
+    switch (method) {
+      case "drone":
+        return "Drone";
+      case "motorbike":
+        return "Xe máy";
+      default:
+        return "Khác";
+    }
+  };
+
   return (
     <TouchableOpacity
-      style={styles.orderCard}
-      activeOpacity={0.9}
-      onPress={onViewDetail}
+      style={styles.orderCardContainer}
+      activeOpacity={0.85}
+      onPress={() => navigation.navigate("RestaurantOrderDetail", { order })}
     >
-      {/* 🧾 Header */}
+      {/* Header */}
       <View style={styles.orderHeader}>
-        <Text style={styles.orderId}>#{order.id.slice(0, 8).toUpperCase()}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+          <View style={styles.mallBadge}>
+            <Text style={styles.mallText}>Delivery by </Text>
+          </View>
+          <Text style={[styles.branchName, { marginLeft: 6, flexShrink: 1 }]}>
+            {getShippingLabel(order.shippingMethod)}
+          </Text>
+        </View>
         <Text
           style={[styles.orderStatus, { color: getStatusColor(order.status) }]}
         >
@@ -223,58 +262,51 @@ const OrderCard = ({
         </Text>
       </View>
 
-      {/* 👤 Khách hàng */}
-      <Text style={styles.customerText}>
-      {order.userName}  |  {order.phone}
-      </Text>
-      
-      <Text style={styles.addressText}>Địa chỉ nhận hàng:</Text>
-      <Text style={styles.addressText}><Ionicons name="location-outline" size={15} color="#777" />{order.address}</Text>
-
-      {/* 🍔 Danh sách món */}
-      {order.items.slice(0, 2).map((item: any, index: number) => (
-      <View key={index} style={styles.itemRow}>
-        <Image source={{ uri: item.image || "https://via.placeholder.com/80" }} style={styles.itemImage} />
-        <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-          <Text style={styles.itemQty}>x{item.quantity}</Text>
-          {/* Nếu muốn show đơn giá: */}
-          {/* <Text style={styles.itemUnit}>{item.unitPrice.toLocaleString("vi-VN")}₫/sp</Text> */}
-          {/* Thành tiền của dòng: */}
-          <Text style={styles.itemPrice}>
-            {Number(item.linePrice || 0).toLocaleString("vi-VN")}₫
-          </Text>
+      {/* Items */}
+      {order.items.map((item: any, idx: number) => (
+        <View key={idx} style={styles.itemRow}>
+          <Image
+            source={{ uri: item.image || "https://via.placeholder.com/80" }}
+            style={styles.itemImage}
+          />
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text numberOfLines={1} style={styles.itemName}>
+              {item.name}
+            </Text>
+            <Text style={styles.itemQty}>x{item.quantity}</Text>
+            <Text style={styles.itemPrice}>
+              {Number(
+                item.unitPrice ??
+                  item.price ??
+                  (item.selectedSize?.price || 0) +
+                    (item.selectedBase?.price || 0) +
+                    (item.selectedTopping?.price || 0) +
+                    (item.selectedAddOn?.price || 0)
+              ).toLocaleString("vi-VN")}
+              ₫
+            </Text>
+          </View>
         </View>
-      </View>
-    ))}
-      {/* 💰 Tổng tiền */}
-      <View style={styles.totalBox}>
-        <Text style={styles.totalLabel}>Tiền hàng:</Text>
-        <Text style={styles.totalValue}>
-          {Number(order.subtotal).toLocaleString("vi-VN")}₫
-        </Text>
-      </View>
+      ))}
 
-      <View style={styles.totalBox}>
-        <Text style={styles.totalLabel}>Phí vận chuyển:</Text>
-        <Text style={styles.totalValue}>
-          {Number(order.shippingFee).toLocaleString("vi-VN")}₫
+      {/* Tổng tiền */}
+      <View style={styles.totalRow}>
+        <Text style={styles.totalLabel}>
+          Tổng số tiền ({order.items.length} sản phẩm):
         </Text>
-      </View>
-
-      <View style={styles.totalBox}>
-        <Text style={[styles.totalLabel, { fontWeight: "bold" }]}>Tổng cộng:</Text>
-        <Text style={[styles.totalValue, { color: "#E53935", fontWeight: "bold", fontSize: 15 }]}>
+        <Text style={styles.totalValue}>
           {Number(order.total).toLocaleString("vi-VN")}₫
         </Text>
       </View>
 
-      {/* 🧭 Footer */}
+      {/* Footer hành động */}
       <View style={styles.cardFooter}>
-        <TouchableOpacity style={styles.detailButton} onPress={onViewDetail}>
-          <Ionicons name="eye-outline" size={16} color="#fff" />
-          <Text style={styles.detailText}>Chi tiết</Text>
-        </TouchableOpacity>
+        {order.status === "processing" && (
+          <TouchableOpacity style={styles.rejectButton} onPress={onReject}>
+            <Ionicons name="close-circle-outline" size={16} color="#fff" />
+            <Text style={styles.confirmText}>Từ chối</Text>
+          </TouchableOpacity>
+        )}
 
         {order.status === "processing" && (
           <TouchableOpacity style={styles.confirmButton} onPress={onConfirm}>
@@ -299,9 +331,10 @@ const OrderCard = ({
   );
 };
 
-/* 🎨 Styles */
+/* ======================== Styles ======================== */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
+
   header: {
     backgroundColor: "#F58220",
     flexDirection: "row",
@@ -309,10 +342,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 30,
-  borderBottomLeftRadius: 14,
-  borderBottomRightRadius: 14,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
   },
   headerTitle: { color: "#fff", fontWeight: "bold", fontSize: 25 },
+
   tabWrapper: { marginVertical: 20 },
   tabScroll: { paddingHorizontal: 16, alignItems: "center" },
   tabButton: {
@@ -325,74 +359,85 @@ const styles = StyleSheet.create({
   activeTabButton: { backgroundColor: "#F58220" },
   tabText: { fontSize: 15, color: "#333", fontWeight: "600" },
   activeTabText: { color: "#fff" },
-  emptyBox: { flex: 1, justifyContent: "center", alignItems: "center"},
+
+  emptyBox: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyText: { color: "#777", fontSize: 14, marginTop: 8 },
-  orderCard: {
+
+  orderCardContainer: {
     backgroundColor: "#fff",
-    borderRadius: 12,
+    borderRadius: 10,
+    marginTop: 10,
+    marginHorizontal: 0,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: "#eee",
-    marginHorizontal: 14,
-    marginBottom: 12,
-    padding: 14,
     shadowColor: "#000",
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 3,
     elevation: 2,
+    width: "100%", // ✅ full width
+    alignSelf: "center",
   },
+
   orderHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 6,
   },
-  orderId: { fontWeight: "600", fontSize: 15, color: "#333" },
+  mallBadge: {
+    backgroundColor: "#D32F2F",
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  mallText: { color: "#fff", fontWeight: "bold", fontSize: 11 },
+  branchName: { fontWeight: "600", fontSize: 14, color: "#222" },
   orderStatus: { fontWeight: "bold", fontSize: 13 },
-  customerText: { fontSize: 13, color: "#444", marginTop: 2 },
-  addressText: { fontSize: 12, color: "#777", marginTop: 2 },
+
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
+    paddingVertical: 8,
     borderBottomWidth: 0.5,
     borderColor: "#eee",
-    paddingBottom: 6,
   },
   itemImage: {
-    width: 55,
-    height: 55,
+    width: 60,
+    height: 60,
     borderRadius: 8,
+    resizeMode: "cover",
     backgroundColor: "#f5f5f5",
   },
-  itemName: { fontSize: 13, color: "#222", fontWeight: "500" },
-  itemQty: { fontSize: 12, color: "#777" },
+  itemName: { fontSize: 13, color: "#333", fontWeight: "500" },
+  itemQty: { fontSize: 12, color: "#777", marginTop: 2 },
   itemPrice: { fontSize: 13, fontWeight: "bold", color: "#E53935", marginTop: 2 },
-  moreText: { fontSize: 12, color: "#999", marginTop: 4, fontStyle: "italic" },
-  itemUnit: { fontSize: 12, color: "#999" },
-  totalBox: {
+
+  totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 4,
+    marginTop: 10,
   },
   totalLabel: { fontSize: 13, color: "#555" },
-  totalValue: { fontSize: 14, color: "#333" },
+  totalValue: { fontSize: 14, fontWeight: "bold", color: "#E53935" },
+
   cardFooter: {
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
     marginTop: 10,
   },
-  detailButton: {
+  rejectButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#9E9E9E",
+    backgroundColor: "#E53935",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     marginRight: 6,
   },
-  detailText: { color: "#fff", fontSize: 13, fontWeight: "600", marginLeft: 4 },
   confirmButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -418,5 +463,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   confirmText: { color: "#fff", fontSize: 13, fontWeight: "600", marginLeft: 4 },
+
   loadingBox: { flex: 1, justifyContent: "center", alignItems: "center" },
 });

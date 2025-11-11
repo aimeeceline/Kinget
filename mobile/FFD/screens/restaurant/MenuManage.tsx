@@ -5,256 +5,350 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
-  TextInput,
-  SafeAreaView,
-  StatusBar,
   ActivityIndicator,
-  Alert,
+  SafeAreaView,
+  Image,
+  Switch,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "../../data/FireBase";
-import { collection, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { useAuth } from "../../context/AuthContext";
+import { useNavigation, NavigationProp } from "@react-navigation/native";
+import { RootStackParamList } from "../../navigation/AppNavigator";
 
-const MenuManageScreen: React.FC<any> = ({ navigation }) => {
+const categories = ["Tất cả", "Pizza", "Burger", "Drink"];
+const statusTabs = ["Tất cả", "Đang bán", "Tạm ngưng"];
+
+const MenuManage: React.FC = () => {
+  const { user } = useAuth();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+
   const [foods, setFoods] = useState<any[]>([]);
   const [filteredFoods, setFilteredFoods] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("Tất cả");
+  const [activeCategory, setActiveCategory] = useState("Tất cả");
+  const [activeStatus, setActiveStatus] = useState("Tất cả");
 
-  const categories = ["Tất cả", "Pizza", "Burger", "Combo", "Nước"];
-
-  // 🟠 Lấy dữ liệu món ăn từ Firestore
   useEffect(() => {
-    const fetchFoods = async () => {
+    const fetchData = async () => {
+      console.log("👤 User info:", user);
+
+      // 🔹 Nếu user chưa có branchId → không thể load chi nhánh
+      if (!user?.branchId) {
+        console.warn("⚠️ User chưa có branchId, không thể lấy menu theo chi nhánh.");
+        setLoading(false);
+        return;
+      }
+
       try {
-        const snap = await getDocs(collection(db, "foods"));
-        const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setFoods(data);
-        setFilteredFoods(data);
-      } catch (error) {
-        console.error("Lỗi tải món ăn:", error);
-      } finally {
+        // 🔥 Tham chiếu tới collection branchFoods của chi nhánh
+        const branchFoodsRef = collection(db, `branches/${user.branchId}/branchFoods`);
+        const foodsSnap = await getDocs(collection(db, "foods"));
+        const allFoods = foodsSnap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as any),
+        }));
+
+        // 🔄 Lắng nghe realtime menu chi nhánh
+        const unsubscribe = onSnapshot(branchFoodsRef, (snapshot) => {
+          const branchList = snapshot.docs.map((d) => ({
+            id: d.id,
+            ...(d.data() as any),
+          }));
+
+          console.log("🔥 Cập nhật branchFoods:", branchList.length);
+
+          // 🧩 Gộp dữ liệu giữa foods và branchFoods
+          const merged = branchList.map((bf) => {
+  // ✅ Ưu tiên tìm theo foodId vì đây là ID thực của món trong "foods"
+  const foodMatch =
+    allFoods.find((f) => f.id === bf.foodId) ||
+    allFoods.find(
+      (f) =>
+        f.name?.trim()?.toLowerCase() ===
+        bf.foodName?.trim()?.toLowerCase()
+    );
+
+  return {
+    id: bf.id, // ID document trong branchFoods
+    foodId: bf.foodId, // Lưu luôn ID gốc để truy cập nhanh
+    name: bf.foodName || foodMatch?.name || "Món chưa xác định",
+    image: foodMatch?.image || bf.image || "",
+    category: foodMatch?.category || "Khác", // ✅ Đọc category từ foods
+    price:
+      foodMatch?.price ??
+      (foodMatch?.sizes?.[0]?.price ?? bf.price ?? 0), // lấy giá đúng nhất
+    isAvailable: bf.isAvailable ?? true,
+    stock: bf.stock ?? 0,
+  };
+});
+
+
+
+          setFoods(merged);
+          setLoading(false);
+        });
+
+        return unsubscribe;
+      } catch (err) {
+        console.error("❌ Lỗi lấy dữ liệu menu:", err);
         setLoading(false);
       }
     };
-    fetchFoods();
-  }, []);
 
-  // 🔍 Lọc món theo tên & danh mục
+    fetchData();
+  }, [user?.branchId]);
+
+  // 🔸 Lọc theo danh mục + trạng thái
   useEffect(() => {
-    let list = foods;
-    if (category !== "Tất cả") {
-      list = list.filter((f) => f.category === category);
-    }
-    if (search.trim() !== "") {
-      list = list.filter((f) =>
-        f.name.toLowerCase().includes(search.toLowerCase())
+    let base = foods;
+
+    if (activeCategory !== "Tất cả") {
+      base = base.filter(
+        (f) => f.category?.trim()?.toLowerCase() === activeCategory.toLowerCase()
       );
     }
-    setFilteredFoods(list);
-  }, [search, category, foods]);
 
-  // 🗑 Xoá món
-  const handleDelete = async (id: string) => {
-    Alert.alert("Xác nhận xoá", "Bạn có chắc muốn xoá món này?", [
-      { text: "Huỷ", style: "cancel" },
-      {
-        text: "Xoá",
-        style: "destructive",
-        onPress: async () => {
-          await deleteDoc(doc(db, "foods", id));
-          setFoods((prev) => prev.filter((f) => f.id !== id));
-        },
-      },
-    ]);
-  };
 
-  // 🔄 Bật/tắt trạng thái còn bán
-  const toggleAvailability = async (id: string, available: boolean) => {
-    await updateDoc(doc(db, "foods", id), { available: !available });
+    if (activeStatus === "Đang bán") {
+      base = base.filter((f) => f.isAvailable);
+    } else if (activeStatus === "Tạm ngưng") {
+      base = base.filter((f) => !f.isAvailable);
+    }
+
+    setFilteredFoods(base);
+  }, [foods, activeCategory, activeStatus]);
+
+  // ✅ Toggle trạng thái bán / ngưng món
+  const toggleAvailability = async (foodId: string, current: boolean) => {
+  try {
+    // 🧩 Cập nhật UI ngay lập tức để mượt
     setFoods((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, available: !available } : f))
+      prev.map((f) =>
+        f.id === foodId ? { ...f, isAvailable: !current } : f
+      )
     );
-  };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingBox}>
-        <ActivityIndicator size="large" color="#F58220" />
-        <Text style={{ color: "#555", marginTop: 10 }}>Đang tải thực đơn...</Text>
-      </View>
-    );
+    // ⏳ Đồng bộ Firestore (nền)
+    if (!user?.branchId) return;
+    const foodRef = doc(db, `branches/${user.branchId}/branchFoods`, foodId);
+    await updateDoc(foodRef, { isAvailable: !current });
+  } catch (err) {
+    console.error("⚠️ Lỗi cập nhật trạng thái bán:", err);
   }
+};
+
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#F58220" />
-
-      {/* 🧡 Header */}
+      {/* 🔶 Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🍔 Quản lý thực đơn</Text>
-        <TouchableOpacity onPress={() => navigation.navigate("AddFood")}>
-          <Ionicons name="add-circle-outline" size={26} color="#fff" />
+        <Text style={styles.headerTitle}>Thực đơn chi nhánh</Text>
+        <TouchableOpacity
+          onPress={() =>
+            navigation.navigate("AddFood", { branchId: user?.branchId })
+          }
+        >
+          <Ionicons name="add-circle-outline" size={30} color="#fff" />
         </TouchableOpacity>
+
       </View>
 
-      {/* 🔍 Thanh tìm kiếm */}
-      <View style={styles.searchBar}>
-        <Ionicons name="search-outline" size={18} color="#666" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Tìm món ăn..."
-          value={search}
-          onChangeText={setSearch}
+      {/* 🔸 Tabs trạng thái */}
+      <View style={styles.tabSection}>
+        <FlatList
+          horizontal
+          data={statusTabs}
+          keyExtractor={(item) => item}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabScroll}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.tabButton,
+                activeStatus === item && styles.activeTab,
+              ]}
+              onPress={() => setActiveStatus(item)}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  activeStatus === item && styles.activeTabText,
+                ]}
+              >
+                {item}
+              </Text>
+            </TouchableOpacity>
+          )}
         />
       </View>
 
-      {/* 🏷️ Bộ lọc danh mục */}
-      <View style={styles.categoryRow}>
-        {categories.map((cat) => (
-          <TouchableOpacity
-            key={cat}
-            style={[
-              styles.categoryBtn,
-              category === cat && styles.activeCategoryBtn,
-            ]}
-            onPress={() => setCategory(cat)}
-          >
-            <Text
+      {/* 🔸 Tabs danh mục */}
+      <View style={styles.tabSection}>
+        <FlatList
+          horizontal
+          data={categories}
+          keyExtractor={(item) => item}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabScroll}
+          renderItem={({ item }) => (
+            <TouchableOpacity
               style={[
-                styles.categoryText,
-                category === cat && styles.activeCategoryText,
+                styles.tabButton,
+                activeCategory === item && styles.activeTab,
               ]}
+              onPress={() => setActiveCategory(item)}
             >
-              {cat}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.tabText,
+                  activeCategory === item && styles.activeTabText,
+                ]}
+              >
+                {item}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
       </View>
 
-      {/* 📦 Danh sách món */}
-      <FlatList
-        data={filteredFoods}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Image
-              source={{ uri: item.image || "https://via.placeholder.com/80" }}
-              style={styles.image}
-            />
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.name}>{item.name}</Text>
-              <Text style={styles.price}>
-                {item.price?.toLocaleString("vi-VN")}₫
-              </Text>
-              <Text style={styles.category}>{item.category}</Text>
-              <Text
-                style={{
-                  color: item.available ? "#4CAF50" : "#E53935",
-                  fontWeight: "600",
-                }}
-              >
-                {item.available ? "Đang bán" : "Hết hàng"}
-              </Text>
-            </View>
+      {/* 📋 Danh sách món ăn */}
+      {filteredFoods.length === 0 ? (
+        <View style={styles.emptyBox}>
+          <Ionicons name="fast-food-outline" size={48} color="#aaa" />
+          <Text style={styles.emptyText}>Không có món nào phù hợp</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredFoods}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ padding: 16 }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.card}
+              activeOpacity={0.9}
+              // ✅ Bấm vào toàn bộ card (trừ Switch) để xem chi tiết
+              onPress={async () => {
+                try {
+                  const foodId = item.foodId || item.id;
+                  const docRef = doc(db, "foods", foodId);
+                  const docSnap = await getDoc(docRef);
 
-            <View style={styles.actions}>
-              <TouchableOpacity
-                onPress={() =>
-                  toggleAvailability(item.id, item.available ?? true)
+                  let fullData = item;
+                  if (docSnap.exists()) {
+                    fullData = { ...item, ...docSnap.data(), id: foodId };
+                  } else {
+                    console.warn("⚠️ Không tìm thấy dữ liệu món ăn trong foods:", foodId);
+                  }
+
+                  navigation.navigate("RestaurantFoodDetail", { food: fullData });
+                } catch (err) {
+                  console.error("❌ Lỗi load chi tiết món:", err);
                 }
-              >
-                <Ionicons
-                  name="refresh-outline"
-                  size={20}
-                  color="#2196F3"
-                  style={{ marginBottom: 8 }}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => navigation.navigate("EditFood", { food: item })}
-              >
-                <Ionicons
-                  name="create-outline"
-                  size={20}
-                  color="#F58220"
-                  style={{ marginBottom: 8 }}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDelete(item.id)}>
-                <Ionicons name="trash-outline" size={20} color="#E53935" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-        contentContainerStyle={{ paddingBottom: 50 }}
-      />
+              }}
+            >
+              <Image
+                source={{
+                  uri: item.image?.startsWith("http")
+                    ? item.image
+                    : "https://via.placeholder.com/100",
+                }}
+                style={styles.image}
+              />
+
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.name}>{item.name}</Text>
+                <Text
+                  style={{
+                    color: item.isAvailable ? "#4CAF50" : "#E53935",
+                    fontSize: 12,
+                    marginTop: 4,
+                  }}
+                >
+                  {item.isAvailable ? "Đang bán" : "Tạm ngưng"}
+                </Text>
+              </View>
+              {/* ✅ Switch được bọc để chặn sự kiện lan */}
+              <View
+                onStartShouldSetResponder={() => true}
+                onTouchStart={(e) => e.stopPropagation()}
+              ></View>
+
+              {/* ✅ Switch: ngăn sự kiện lan lên TouchableOpacity */}
+              <Switch
+                value={item.isAvailable ?? true}
+                onValueChange={(value) => {
+                  // Ngăn chặn sự kiện lan lên onPress
+                  // (Khi user chạm vào Switch, không bị trigger navigation)
+                  toggleAvailability(item.id, item.isAvailable);
+                }}
+                trackColor={{ false: "#ccc", true: "#F58220" }}
+                thumbColor="#fff"
+                style={{ transform: [{ scale: 0.9 }] }}
+              />
+            </TouchableOpacity>
+          )}
+        />
+
+      )}
     </SafeAreaView>
   );
 };
 
-export default MenuManageScreen;
+export default MenuManage;
 
 /* 🎨 Styles */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
     backgroundColor: "#F58220",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 20,
   },
-  headerTitle: { color: "#fff", fontWeight: "bold", fontSize: 18 },
-
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f2f2f2",
-    borderRadius: 8,
-    margin: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  searchInput: { marginLeft: 6, flex: 1, fontSize: 14 },
-
-  categoryRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginVertical: 4,
-  },
-  categoryBtn: {
-    paddingHorizontal: 12,
+  headerTitle: { color: "#fff", fontWeight: "bold", fontSize: 20 },
+  tabSection: { marginTop: 15 },
+  tabScroll: { paddingHorizontal: 16 },
+  tabButton: {
+    backgroundColor: "#EDECEC",
+    paddingHorizontal: 18,
     paddingVertical: 8,
-    backgroundColor: "#f2f2f2",
     borderRadius: 20,
+    marginRight: 10,
   },
-  activeCategoryBtn: { backgroundColor: "#F58220" },
-  categoryText: { fontSize: 13, color: "#333", fontWeight: "600" },
-  activeCategoryText: { color: "#fff" },
-
+  activeTab: { backgroundColor: "#F58220" },
+  tabText: { fontSize: 15, color: "#333", fontWeight: "600" },
+  activeTabText: { color: "#fff" },
   card: {
     flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#fff",
-    marginHorizontal: 12,
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#eee",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
     elevation: 2,
   },
-  image: { width: 70, height: 70, borderRadius: 8 },
-  name: { fontSize: 15, fontWeight: "600", color: "#333" },
-  price: { fontSize: 14, fontWeight: "bold", color: "#E53935" },
-  category: { fontSize: 12, color: "#777", marginBottom: 2 },
-  actions: { justifyContent: "center", alignItems: "center", marginLeft: 6 },
-
-  loadingBox: { flex: 1, justifyContent: "center", alignItems: "center" },
+  image: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    backgroundColor: "#f5f5f5",
+  },
+  name: { fontWeight: "bold", fontSize: 15, color: "#333" },
+  emptyBox: { flex: 1, justifyContent: "center", alignItems: "center" },
+  emptyText: { color: "#777", marginTop: 8 },
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -20,8 +20,7 @@ import {
   query,
   where,
   orderBy,
-  getDoc,
-  doc,
+  getDocs,
 } from "firebase/firestore";
 
 // ======================== Kiểu dữ liệu ========================
@@ -29,6 +28,7 @@ interface OrderItem {
   id: string;
   date: string;
   total: number;
+  subtotal: number;
   status:
     | "processing"
     | "preparing"
@@ -38,20 +38,21 @@ interface OrderItem {
     | "cancelled";
   branchId?: string;
   branchName?: string;
-  receiverAddress?: string;
-  shippingFee?: number;
+  orderAddress?: string;
+  receiverName?: string;
+  receiverPhone?: string;
   paymentMethod?: string;
   shippingMethod?: string;
+  shippingFee?: number;
   items: {
     name: string;
-    quantity: number;
     image?: string;
-    note?: string;
-    price?: number; 
-    selectedSize?: { label: string; price: number };
-    selectedBase?: { label: string; price: number };
-    selectedTopping?: { label: string; price: number }[];
-    selectedAddOn?: { label: string; price: number }[];
+    price?: number;
+    quantity: number;
+    selectedSize?: { label: string; price: number } | null;
+    selectedBase?: { label: string; price: number } | null;
+    selectedTopping?: { label: string; price: number }[] | null;
+    selectedAddOn?: { label: string; price: number }[] | null;
   }[];
 }
 
@@ -71,59 +72,62 @@ const OrderScreen: React.FC<any> = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState<OrderItem["status"]>("processing");
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const branchCache = useRef<Record<string, string>>({});
 
   // 🔄 Lấy danh sách đơn hàng realtime
   useEffect(() => {
-    if (!user?.id && !user?.phone) return;
+    if (!user?.id) return;
 
     const q = query(
       collection(db, "orders"),
-      where("userId", "==", user.id || user.phone),
+      where("userId", "==", user.id),
       orderBy("createdAt", "desc")
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const tempOrders: OrderItem[] = [];
+      try {
+        const tempOrders: OrderItem[] = [];
 
-      for (const docSnap of snapshot.docs) {
-        const order = docSnap.data();
-        const createdAt = order.createdAt?.toDate?.() || new Date();
-
-        let branchName = order.branchId || "Không rõ chi nhánh";
-        // 🔎 Lấy tên chi nhánh từ Firestore
-        if (order.branchId) {
-          try {
-            const branchRef = doc(db, "branches", order.branchId);
-            const branchSnap = await getDoc(branchRef);
-            if (branchSnap.exists()) {
-              branchName = branchSnap.data().name || branchName;
-            }
-          } catch {}
-        }
-
-        tempOrders.push({
-          id: docSnap.id,
-          date: createdAt.toLocaleString("vi-VN"),
-          total: order.total || 0,
-          status: order.status || "processing",
-          branchId: order.branchId,
-          branchName,
-          receiverAddress: order.receiverAddress || "Không có địa chỉ",
-          shippingFee: order.shippingFee || 0,
-          shippingMethod: order.shippingMethod || "motorbike",
-          paymentMethod: order.paymentMethod || "cash",
-          items: order.items || [],
+        // Cache danh sách chi nhánh
+        const branchSnap = await getDocs(collection(db, "branches"));
+        branchSnap.forEach((b) => {
+          branchCache.current[b.id] = (b.data() as any).name || "Không rõ chi nhánh";
         });
-      }
 
-      setOrders(tempOrders);
-      setLoading(false);
+        snapshot.docs.forEach((docSnap) => {
+          const order = docSnap.data();
+          const createdAt = order.createdAt?.toDate?.() || new Date();
+
+          tempOrders.push({
+            id: docSnap.id,
+            date: createdAt.toLocaleString("vi-VN"),
+            total: order.total || 0,
+            subtotal: order.subtotal || 0,
+            status: order.status || "processing",
+            branchId: order.branchId,
+            branchName:
+              branchCache.current[order.branchId] || "Không rõ chi nhánh",
+            orderAddress: order.orderAddress || "Không có địa chỉ",
+            receiverName: order.receiverName || "Khách hàng",
+            receiverPhone: order.receiverPhone || "",
+            paymentMethod: order.paymentMethod || "cash",
+            shippingMethod: order.shippingMethod || "motorbike",
+            shippingFee: order.shippingFee || 0,
+            items: order.items || [],
+          });
+        });
+
+        setOrders(tempOrders);
+        setLoading(false);
+      } catch (err) {
+        console.error("🔥 Lỗi khi load đơn hàng:", err);
+        setLoading(false);
+      }
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.id]);
 
-  // 🧩 Lọc đơn theo trạng thái
   const filteredOrders = orders.filter((o) => o.status === activeTab);
 
   // ======================== Hiển thị ========================
@@ -142,11 +146,7 @@ const OrderScreen: React.FC<any> = ({ navigation }) => {
 
       {/* 🟠 Tabs lọc trạng thái */}
       <View style={styles.tabWrapper}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabScroll}
-        >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
           {statusTabs.map((tab) => (
             <TouchableOpacity
               key={tab.key}
@@ -168,7 +168,6 @@ const OrderScreen: React.FC<any> = ({ navigation }) => {
           ))}
         </ScrollView>
       </View>
-
 
       {/* 📦 Danh sách đơn */}
       {filteredOrders.length === 0 ? (
@@ -226,7 +225,10 @@ const OrderCard = ({ order, navigation }: { order: OrderItem; navigation: any })
           <View style={styles.mallBadge}>
             <Text style={styles.mallText}>Mall</Text>
           </View>
-            <Text style={styles.branchName}>  {order.branchName || "Chi nhánh chưa xác định"}</Text>
+          <Text style={styles.branchName}>
+            {" "}
+            {order.branchName || "Chi nhánh chưa xác định"}
+          </Text>
         </View>
         <Text style={[styles.orderStatus, { color: getStatusColor(order.status) }]}>
           {statusTabs.find((t) => t.key === order.status)?.label}
@@ -248,11 +250,12 @@ const OrderCard = ({ order, navigation }: { order: OrderItem; navigation: any })
             <Text style={styles.itemPrice}>
               {(
                 item.price ||
-                ((item.selectedSize?.price || 0) +
+                (item.selectedSize?.price || 0) +
                   (item.selectedBase?.price || 0) +
                   (item.selectedTopping?.reduce((s, t) => s + (t.price || 0), 0) || 0) +
-                  (item.selectedAddOn?.reduce((s, a) => s + (a.price || 0), 0) || 0))
-              ).toLocaleString("vi-VN")}₫
+                  (item.selectedAddOn?.reduce((s, a) => s + (a.price || 0), 0) || 0)
+              ).toLocaleString("vi-VN")}
+              ₫
             </Text>
           </View>
         </View>
@@ -261,11 +264,9 @@ const OrderCard = ({ order, navigation }: { order: OrderItem; navigation: any })
       {/* 💰 Tổng tiền */}
       <View style={styles.totalRow}>
         <Text style={styles.totalLabel}>
-          Tổng số tiền ({order.items.length} sản phẩm):
+          Tổng số tiền ({order.items.length} món):
         </Text>
-        <Text style={styles.totalValue}>
-          {order.total.toLocaleString("vi-VN")}₫
-        </Text>
+        <Text style={styles.totalValue}>{order.total.toLocaleString("vi-VN")}₫</Text>
       </View>
     </TouchableOpacity>
   );

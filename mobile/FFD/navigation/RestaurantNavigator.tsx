@@ -4,8 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import RestaurantScreen from "../screens/restaurant/Dashboard";
 import OrderManage from "../screens/restaurant/OrderManage";
-import StoreManage from "../screens/restaurant/StoreManage";
-import AccountScreen from "../screens/restaurant/Account";
+import RestaurantAccountScreen from "../screens/restaurant/RestaurantAccount";
 
 const Tab = createBottomTabNavigator();
 
@@ -36,9 +35,6 @@ export default function RestaurantNavigator() {
             case "Đơn hàng":
               iconName = focused ? "receipt" : "receipt-outline";
               break;
-            case "Nhà hàng":
-              iconName = focused ? "storefront" : "storefront-outline";
-              break;
             case "Tài khoản":
               iconName = focused ? "person" : "person-outline";
               break;
@@ -51,8 +47,7 @@ export default function RestaurantNavigator() {
     >
       <Tab.Screen name="Trang chủ" component={RestaurantScreen} />
       <Tab.Screen name="Đơn hàng" component={OrderManage} />
-      <Tab.Screen name="Nhà hàng" component={StoreManage} />
-      <Tab.Screen name="Tài khoản" component={AccountScreen} />
+      <Tab.Screen name="Tài khoản" component={RestaurantAccountScreen} />
     </Tab.Navigator>
   );
 }
