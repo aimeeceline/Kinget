@@ -20,34 +20,35 @@ export interface Option {
 export type Category = "Pizza" | "Burger" | "Drink";
 
 // 🧩 Định nghĩa món ăn chung
+// 🧩 Định nghĩa món ăn chung
 export interface Food {
-  id: string;               // id document trong Firestore
-  name: string;             // Tên món ăn
+  id: string;               // id document (VD: F06)
+  code?: string;            // Mã món (VD: F06)
+  name: string;             // Tên món
+  description?: string;     // Mô tả món
   category: Category;       // Loại món
-  price?: number;           // Giá mặc định (nếu có)
-  description?: string;     // Mô tả
-  image?: string;           // URL ảnh
-
-  // 🍕 Pizza
-  sizes?: Size[];           // Kích cỡ pizza
-  bases?: Base[];           // Đế bánh
-  toppings?: Option[];      // Danh sách topping có thể chọn
-
-  // 🍔 Burger
-  addOns?: Option[];        // Danh sách phần thêm (add-on)
+  image?: string;           // Hình ảnh
+  price?: number;           // Giá mặc định
+  isActive?: boolean;       // Trạng thái hiển thị
+  createdAt?: number;       // Thời gian tạo (timestamp)
+  bases?: Base[];           // Danh sách đế bánh
+  sizes?: Size[];           // Danh sách size
+  toppings?: Option[];      // Danh sách topping
+  addOns?: Option[];        // Danh sách add-on
 }
+
 
 // 🍱 Dùng cho giỏ hàng
 export interface FoodOrderItem extends Food {
+  firestoreId?: string;     // ID của document trong subcollection items
+  quantity: number;         // Số lượng
+  note?: string | null;     // Ghi chú
   selectedSize?: Size | null;
   selectedBase?: Base | null;
-
-  // ✅ cho phép nhiều lựa chọn
-  selectedTopping?: Option[]; 
+  selectedTopping?: Option[];
   selectedAddOn?: Option[];
-
-  note?: string | null;
-  quantity: number;
-  firestoreId?: string; 
-  signature?: string;   
+  signature?: string;       // Chuỗi định danh (dùng so trùng lặp)
 }
+
+
+
