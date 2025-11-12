@@ -279,22 +279,19 @@ const MenuManage: React.FC = () => {
               </View>
               {/* ✅ Switch được bọc để chặn sự kiện lan */}
               <View
+                pointerEvents="box-only" // ✅ giúp tách vùng touch cho Switch
                 onStartShouldSetResponder={() => true}
                 onTouchStart={(e) => e.stopPropagation()}
-              ></View>
+              >
+                <Switch
+                  value={item.isAvailable ?? true}
+                  onValueChange={() => toggleAvailability(item.id, item.isAvailable)}
+                  trackColor={{ false: "#ccc", true: "#F58220" }}
+                  thumbColor="#fff"
+                  style={{ transform: [{ scale: 0.9 }] }}
+                />
+              </View>
 
-              {/* ✅ Switch: ngăn sự kiện lan lên TouchableOpacity */}
-              <Switch
-                value={item.isAvailable ?? true}
-                onValueChange={(value) => {
-                  // Ngăn chặn sự kiện lan lên onPress
-                  // (Khi user chạm vào Switch, không bị trigger navigation)
-                  toggleAvailability(item.id, item.isAvailable);
-                }}
-                trackColor={{ false: "#ccc", true: "#F58220" }}
-                thumbColor="#fff"
-                style={{ transform: [{ scale: 0.9 }] }}
-              />
             </TouchableOpacity>
           )}
         />
