@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { updateDoc, doc } from "firebase/firestore";
 import { db } from "../../data/FireBase";
 
-const DroneDetail = ({ route, navigation }: any) => {
+const DroneDetail = ({ route }: any) => {
   const { drone } = route.params || {};
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState(drone || {});
@@ -20,7 +20,9 @@ const DroneDetail = ({ route, navigation }: any) => {
   if (!drone) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: "#777" }}>Không có dữ liệu drone để hiển thị.</Text>
+        <Text style={{ color: "#777" }}>
+          Không có dữ liệu drone để hiển thị.
+        </Text>
       </View>
     );
   }
@@ -33,6 +35,7 @@ const DroneDetail = ({ route, navigation }: any) => {
         battery: form.battery ?? 0,
         branchId: form.branchId || "",
       });
+
       Alert.alert("✅ Thành công", "Đã lưu thay đổi drone.");
       setEditMode(false);
     } catch (err) {
@@ -41,14 +44,8 @@ const DroneDetail = ({ route, navigation }: any) => {
     }
   };
 
-  const handleCancelEdit = () => {
-    setForm(drone);
-    setEditMode(false);
-  };
-
   return (
     <ScrollView style={styles.container}>
-
       {!editMode ? (
         <View style={styles.content}>
           <InfoRow label="Tên Drone" value={form.name} />
@@ -56,8 +53,11 @@ const DroneDetail = ({ route, navigation }: any) => {
           <InfoRow label="Pin (%)" value={String(form.battery ?? 0)} />
           <InfoRow label="Chi nhánh" value={form.branchId} />
 
-          <TouchableOpacity style={styles.editBtn} onPress={() => setEditMode(true)}>
-            <Ionicons name="create-outline" size={18} color="#fff" />
+          <TouchableOpacity
+            style={styles.editBtn}
+            onPress={() => setEditMode(true)}
+          >
+            <Ionicons name="create-outline" size={18} color="#fff"  />
             <Text style={styles.editText}>Chỉnh sửa thông tin</Text>
           </TouchableOpacity>
         </View>
@@ -76,7 +76,9 @@ const DroneDetail = ({ route, navigation }: any) => {
           <Input
             label="Pin (%)"
             value={String(form.battery ?? "")}
-            onChange={(v: string) => setForm({ ...form, battery: Number(v) || 0 })}
+            onChange={(v: string) =>
+              setForm({ ...form, battery: Number(v) || 0 })
+            }
           />
           <Input
             label="Chi nhánh"
@@ -84,16 +86,10 @@ const DroneDetail = ({ route, navigation }: any) => {
             onChange={(v: string) => setForm({ ...form, branchId: v })}
           />
 
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelEdit}>
-              <Ionicons name="arrow-undo-outline" size={18} color="#F58220" />
-              <Text style={styles.cancelText}>Quay lại</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-              <Text style={styles.saveText}>Lưu thay đổi</Text>
-            </TouchableOpacity>
-          </View>
+          {/* 🔥 Nút Lưu full width */}
+          <TouchableOpacity style={styles.saveBtnFull} onPress={handleSave}>
+            <Text style={styles.saveText}>Lưu thay đổi</Text>
+          </TouchableOpacity>
         </View>
       )}
     </ScrollView>
@@ -102,7 +98,8 @@ const DroneDetail = ({ route, navigation }: any) => {
 
 export default DroneDetail;
 
-/* Component phụ trợ + style giữ nguyên như BranchDetail */
+/* ==================== COMPONENT PHỤ ==================== */
+
 const InfoRow = ({ label, value }: any) => (
   <View style={styles.infoRow}>
     <Text style={styles.infoLabel}>{label}</Text>
@@ -110,15 +107,7 @@ const InfoRow = ({ label, value }: any) => (
   </View>
 );
 
-const Input = ({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) => (
+const Input = ({ label, value, onChange }: any) => (
   <View style={{ marginVertical: 8 }}>
     <Text style={styles.inputLabel}>{label}</Text>
     <TextInput
@@ -130,21 +119,14 @@ const Input = ({
   </View>
 );
 
+/* ==================== STYLE ==================== */
 
-
-/* 🎨 Styles */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F58220",
-    padding: 16,
-    gap: 12,
-  },
-  title: { color: "#fff", fontWeight: "bold", fontSize: 18 },
+
   content: { padding: 16 },
+
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -154,6 +136,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: { color: "#333", fontWeight: "600" },
   infoValue: { color: "#555", flexShrink: 1, textAlign: "right" },
+
   editBtn: {
     backgroundColor: "#F58220",
     flexDirection: "row",
@@ -164,6 +147,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   editText: { color: "#fff", marginLeft: 6, fontWeight: "bold" },
+
   inputLabel: { color: "#555", fontWeight: "600" },
   input: {
     borderWidth: 1,
@@ -172,30 +156,18 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: "#fff",
   },
-  buttonRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 15,
-  },
-  cancelBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#F58220",
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    flex: 1,
-    marginRight: 8,
-  },
-  cancelText: { color: "#F58220", fontWeight: "bold", marginLeft: 6 },
-  saveBtn: {
-    flex: 1,
+
+  /* 🔥 Lưu full width */
+  saveBtnFull: {
     backgroundColor: "#F58220",
     borderRadius: 8,
-    paddingVertical: 12,
-    marginLeft: 8,
+    paddingVertical: 14,
+    marginTop: 20,
   },
-  saveText: { color: "#fff", textAlign: "center", fontWeight: "bold" },
+  saveText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
 });

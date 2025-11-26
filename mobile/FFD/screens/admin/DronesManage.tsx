@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet, SafeAreaView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
 import { db } from "../../data/FireBase";
@@ -38,8 +38,9 @@ const DronesManage = () => {
   if (loading) return <ActivityIndicator style={{ flex: 1 }} color="#F58220" size="large" />;
 
   return (
+  <SafeAreaView style={styles.safeArea}>
     <View style={styles.container}>
-      <Text style={styles.header}>🚁 Danh sách Drone</Text>
+      <Text style={styles.header}>Danh sách Drone</Text>
       <FlatList
         data={drones}
         keyExtractor={(item) => item.id}
@@ -47,7 +48,7 @@ const DronesManage = () => {
           <TouchableOpacity style={styles.card}                            
                             onPress={() => navigation.navigate("DroneDetail", { drone: item })}
           >
-            <Ionicons name="airplane-outline" size={40} color="#F58220" />
+            <Ionicons name="airplane-outline" size={40} color="#F58220" style={{ marginRight: 10 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{item.name || "Drone chưa đặt tên"}</Text>
               <Text style={styles.sub}>Trạng thái: {item.status || "Không rõ"}</Text>
@@ -66,15 +67,20 @@ const DronesManage = () => {
         </TouchableOpacity>
       </BottomSheet>
     </View>
+    </SafeAreaView>
   );
 };
 
 export default DronesManage;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 16 },
-  header: { fontWeight: "bold", fontSize: 18, marginBottom: 10 },
-  card: { flexDirection: "row", alignItems: "center", backgroundColor: "#f9f9f9", padding: 12, borderRadius: 8, marginBottom: 8 },
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#f9f9f9",
+  },
+  container: { flex: 1, backgroundColor: "#f9f9f9", padding: 16 },
+  header: { fontWeight: "bold", fontSize: 18, marginBottom: 15, },
+  card: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", padding: 12, borderRadius: 8, marginBottom: 15, borderWidth:1, borderColor: "#F58220" },
   name: { fontSize: 16, fontWeight: "600" },
   sub: { fontSize: 13, color: "#777" },
   input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 6, marginBottom: 10, padding: 8 },
