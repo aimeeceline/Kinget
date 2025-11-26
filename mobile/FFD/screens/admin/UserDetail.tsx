@@ -20,7 +20,9 @@ const UserDetail = ({ route, navigation }: any) => {
   if (!user) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: "#777" }}>Không có dữ liệu người dùng để hiển thị.</Text>
+        <Text style={{ color: "#777" }}>
+          Không có dữ liệu người dùng để hiển thị.
+        </Text>
       </View>
     );
   }
@@ -42,14 +44,8 @@ const UserDetail = ({ route, navigation }: any) => {
     }
   };
 
-  const handleCancelEdit = () => {
-    setForm(user); // 🔙 Reset về dữ liệu ban đầu
-    setEditMode(false);
-  };
-
   return (
     <ScrollView style={styles.container}>
-      {/* 🔸 Nội dung */}
       {!editMode ? (
         <View style={styles.content}>
           <InfoRow label="Họ" value={form.lastName} />
@@ -86,17 +82,10 @@ const UserDetail = ({ route, navigation }: any) => {
             onChange={(v: string) => setForm({ ...form, phone: v })}
           />
 
-          {/* 🔘 Nút Quay lại + Lưu */}
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelEdit}>
-              <Ionicons name="arrow-undo-outline" size={18} color="#F58220" />
-              <Text style={styles.cancelText}>Quay lại</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-              <Text style={styles.saveText}>Lưu thay đổi</Text>
-            </TouchableOpacity>
-          </View>
+          {/* 🔥 Nút Lưu full width */}
+          <TouchableOpacity style={styles.saveBtnFull} onPress={handleSave}>
+            <Text style={styles.saveText}>Lưu thay đổi</Text>
+          </TouchableOpacity>
         </View>
       )}
     </ScrollView>
@@ -105,7 +94,7 @@ const UserDetail = ({ route, navigation }: any) => {
 
 export default UserDetail;
 
-/* 🧾 Thành phần phụ trợ */
+/* 🧾 Info row */
 const InfoRow = ({ label, value }: any) => (
   <View style={styles.infoRow}>
     <Text style={styles.infoLabel}>{label}</Text>
@@ -113,15 +102,8 @@ const InfoRow = ({ label, value }: any) => (
   </View>
 );
 
-const Input = ({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) => (
+/* 🧩 Input */
+const Input = ({ label, value, onChange }: any) => (
   <View style={{ marginVertical: 8 }}>
     <Text style={styles.inputLabel}>{label}</Text>
     <TextInput
@@ -137,15 +119,9 @@ const Input = ({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F58220",
-    padding: 16,
-    gap: 12,
-  },
-  title: { color: "#fff", fontWeight: "bold", fontSize: 18 },
+
   content: { padding: 16 },
+
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -153,8 +129,10 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
     paddingVertical: 10,
   },
+
   infoLabel: { color: "#333", fontWeight: "600" },
   infoValue: { color: "#555", flexShrink: 1, textAlign: "right" },
+
   editBtn: {
     backgroundColor: "#F58220",
     flexDirection: "row",
@@ -165,6 +143,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   editText: { color: "#fff", marginLeft: 6, fontWeight: "bold" },
+
   inputLabel: { color: "#555", fontWeight: "600" },
   input: {
     borderWidth: 1,
@@ -173,31 +152,13 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: "#fff",
   },
-  /* 🔘 2 nút song song */
-  buttonRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 15,
-  },
-  cancelBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#F58220",
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    flex: 1,
-    marginRight: 8,
-  },
-  cancelText: { color: "#F58220", fontWeight: "bold", marginLeft: 6 },
-  saveBtn: {
-    flex: 1,
+
+  /* 🔥 Nút Lưu full width */
+  saveBtnFull: {
     backgroundColor: "#F58220",
     borderRadius: 8,
-    paddingVertical: 12,
-    marginLeft: 8,
+    paddingVertical: 14,
+    marginTop: 20,
   },
-  saveText: { color: "#fff", textAlign: "center", fontWeight: "bold" },
+  saveText: { color: "#fff", textAlign: "center", fontWeight: "bold", fontSize: 16 },
 });

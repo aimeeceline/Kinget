@@ -279,6 +279,7 @@ const MenuManage: React.FC = () => {
               </View>
               {/* ✅ Switch được bọc để chặn sự kiện lan */}
               <View
+                pointerEvents="box-only" // ✅ giúp tách vùng touch cho Switch
                 onStartShouldSetResponder={() => true}
                 onTouchStart={(e) => e.stopPropagation()}
               ></View>

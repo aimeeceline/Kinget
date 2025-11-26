@@ -126,7 +126,6 @@ const RestaurantAccount: React.FC = () => {
       const userRef = doc(db, "users", userDoc.id);
 
       await Promise.all([
-        updateDoc(branchRef, { password: newPassword }),
         updateDoc(userRef, { password: newPassword }),
       ]);
 
