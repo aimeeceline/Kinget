@@ -1,151 +1,295 @@
-/* vùng trang */
+/* src/pages/css/Restaurant/Orders.css */
+
 .rest-orders-page {
-  padding: 18px 20px 40px;
+  padding: 32px 40px;
 }
 
-/* thanh filter trên cùng */
-.rest-filter-bar {
+/* ---------- Tabs trạng thái ---------- */
+
+.rest-tabs {
   display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
-.fbtn {
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  border-radius: 6px;
-  padding: 4px 10px;
+.rest-tab-btn {
+  position: relative;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: none;
+  background: #f3f3f3;
+  color: #333;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  font-size: 13px;
-  transition: 0.12s;
+  transition: all 0.2s ease;
 }
-.fbtn:hover {
-  background: #f3f4f6;
-}
-.fbtn.active {
-  background: #ff7a1a;
-  border-color: #ff7a1a;
+
+.rest-tab-btn--active {
+  background: #f58220;
   color: #fff;
 }
 
-/* bảng giống bên menu */
+.rest-tab-badge {
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #ffeded;
+  color: #e53935;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ---------- Wrapper của bảng ---------- */
+
+.rest-orders-table-wrapper {
+  max-width: 1100px;          /* ✅ giới hạn bề ngang */
+  margin: 10px auto 0;        /* căn giữa */
+  background: #ffffff;
+  border-radius: 16px;        /* bo góc khối trắng */
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  overflow: hidden;           /* ✅ nút không lòi ra ngoài */
+}
+
+/* ---------- Bảng ---------- */
+
 .rest-orders-table {
   width: 100%;
   border-collapse: collapse;
-  background: #fff;
-  border-radius: 12px 12px 0 0;
-  overflow: hidden;
+  table-layout: fixed;        /* giúp các cột đều nhau */
 }
 
-.rest-orders-table thead th {
-  background: #000;
-  color: #fff;
-  text-align: left;
-  padding: 10px 12px;
+/* Header */
+.rest-orders-table thead tr {
+  background: #f49f0e;
+  color: #ffffff;
+}
+
+.rest-orders-table th {
+  padding: 12px 18px;
+  text-align: center;
+  font-size: 13px;
   font-weight: 600;
-  font-size: 14px;
+  white-space: nowrap;
 }
 
-.rest-orders-table tbody td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #f3f4f6;
-  font-size: 14px;
+/* Body */
+.rest-orders-table tbody tr {
+  background: #ffffff;
+}
+
+.rest-orders-table tbody tr + tr {
+  border-top: 1px solid #f1f1f1;
+}
+
+.rest-orders-table td {
+  padding: 12px 18px;
+  font-size: 13px;
   vertical-align: middle;
 }
 
-.rest-orders-table tbody tr:last-child td {
-  border-bottom: none;
+/* ---------- Định nghĩa độ rộng cột ---------- */
+
+.col-code {
+  width: 90px;
 }
 
-/* link mã đơn */
-.order-link {
-  color: #0f766e;
-  text-decoration: none;
-  font-weight: 600;
+.col-product {
+  width: 320px;
 }
-.order-link:hover {
+
+.col-customer {
+  width: 120px;
+}
+
+.col-phone {
+  width: 120px;
+}
+
+.col-total {
+  width: 130px;
+}
+
+.col-status {
+  width: 130px;
+}
+
+.col-actions {
+  width: 170px;
+  text-align: center;
+  white-space: nowrap; /* giữ nút trên một dòng */
+}
+
+/* ---------- Mã đơn (click để xem chi tiết) ---------- */
+
+.code-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.code-link:hover {
   text-decoration: underline;
 }
 
-/* badge trạng thái */
-.order-badge {
-  display: inline-block;
-  padding: 3px 10px;
+/* ---------- Ô sản phẩm – HIỆN TẤT CẢ MÓN ---------- */
+
+
+/* Ô sản phẩm: hiển thị nhiều món theo cột, gọn gàng */
+.col-product {
+  width: 30%;
+}
+
+/* container chung của cột sản phẩm */
+.product-cell {
+  display: flex;
+  flex-direction: column;   /* mỗi món 1 dòng */
+  gap: 6px;
+  max-height: 100px;        /* ❗ giới hạn chiều cao hàng */
+  overflow-y: auto;         /* nếu quá nhiều món thì cuộn trong ô */
+  padding-right: 4px;
+}
+
+/* mỗi dòng món ăn */
+.product-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ảnh món: nhỏ lại cho bảng đỡ cao */
+.product-item img {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+/* text bên phải ảnh */
+.product-texts {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+
+.product-name {
+  font-weight: 500;
+  color: #222;
+  line-height: 1.1;
+}
+
+.product-qty {
+  font-size: 12px;
+  color: #777;
+}
+
+.product-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.product-row img {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.product-main-texts {
+  display: flex;
+  flex-direction: column;
+}
+
+.product-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #222;
+  line-height: 1.2;
+}
+
+.product-meta {
+  font-size: 11px;
+  color: #777;
+}
+
+/* ---------- Trạng thái ---------- */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-processing {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-preparing {
+  background: #ffe4ff;
+  color: #c2185b;
+}
+
+.status-shipping {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.status-completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-cancelled {
+  background: #ffebee;
+  color: #c62828;
+}
+
+/* ---------- Nút thao tác ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 500;
-}
-
-.badge-pending {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-.badge-preparing {
-  background: #ffedd5;
-  color: #c05621;
-}
-.badge-delivering {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-.badge-done {
-  background: #dcfce7;
-  color: #166534;
-}
-.badge-cancelled {
-  background: #e5e7eb;
-  color: #374151;
-}
-.badge-unknown {
-  background: #e5e7eb;
-  color: #111827;
-}
-
-/* pagination giống bên quản lý món ăn */
-.rest-orders-pagination {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  padding: 12px 10px 4px;
-  background: #fff;
-  border-radius: 0 0 12px 12px;
-  border-top: 1px solid #f3f4f6;
-}
-
-.rest-orders-pagination button {
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
-  cursor: pointer;
   font-weight: 600;
-  transition: 0.1s;
+  cursor: pointer;
+  border: none;
+  outline: none;
 }
 
-.rest-orders-pagination button:hover {
-  background: #f3f4f6;
+.btn + .btn {
+  margin-left: 8px;
 }
 
-.rest-orders-pagination button.active {
-  background: #ff7a1a;
-  border-color: #ff7a1a;
-  color: #fff;
+.btn-primary {
+  background: #f58220;
+  color: #ffffff;
 }
 
-.rest-orders-pagination button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.btn-outline {
+  background: #ffffff;
+  color: #f58220;
+  border: 1px solid #f58220;
 }
 
-/* responsive nhẹ */
-@media (max-width: 720px) {
-  .rest-orders-table thead {
-    font-size: 13px;
-  }
-  .rest-orders-table tbody td {
-    font-size: 13px;
-  }
+/* ---------- Ô trống khi không có đơn ---------- */
+
+.rest-empty-cell {
+  padding: 24px 18px;
+  text-align: center;
+  color: #777;
+  font-size: 13px;
 }

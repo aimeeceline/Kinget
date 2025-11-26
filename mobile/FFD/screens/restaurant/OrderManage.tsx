@@ -1,3 +1,4 @@
+// src/screens/Restaurant/RestaurantOrderScreen.tsx
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
+
 import { RootStackParamList } from "../../navigation/AppNavigator";
 import { db } from "../../data/FireBase";
 import {
@@ -22,14 +24,15 @@ import {
   query,
   updateDoc,
   doc,
+  where,
 } from "firebase/firestore";
+import { useAuth } from "../../context/AuthContext";
 
 // ======================== Tabs trạng thái ========================
 const statusTabs = [
   { key: "processing", label: "Chờ xác nhận" },
   { key: "preparing", label: "Đang chuẩn bị" },
-  { key: "delivering", label: "Đang giao" },
-  { key: "delivered", label: "Đã giao" },
+  { key: "shipping", label: "Đang giao" },
   { key: "completed", label: "Hoàn thành" },
   { key: "cancelled", label: "Đã hủy" },
 ];
@@ -37,72 +40,127 @@ const statusTabs = [
 const RestaurantOrderScreen: React.FC<{
   navigation: NavigationProp<RootStackParamList>;
 }> = ({ navigation }) => {
+  const { user } = useAuth(); // ✅ lấy user đang đăng nhập (restaurant)
   const [orders, setOrders] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("processing");
   const [loading, setLoading] = useState(true);
 
-  // 🔄 Lấy danh sách đơn hàng realtime
+  // 🔄 Lấy danh sách đơn hàng realtime, lọc theo chi nhánh của user
   useEffect(() => {
-    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((docSnap) => {
-        const raw = docSnap.data();
-        const createdAt = raw.createdAt?.toDate?.() || new Date();
+    let unsub: (() => void) | undefined;
 
-        // Chuẩn hoá item: đơn giá & thành tiền
-        const items = (raw.items || []).map((it: any) => {
-          const unit =
-            Number(it?.price) ||
-            Number(it?.selectedSize?.price || 0) +
-              Number(it?.selectedBase?.price || 0) +
-              Number(it?.selectedTopping?.price || 0) +
-              Number(it?.selectedAddOn?.price || 0);
+    const run = async () => {
+      // chưa login / không phải restaurant / không có branchId
+      if (!user || user.role !== "restaurant" || !user.branchId) {
+        setOrders([]);
+        setLoading(false);
+        return;
+      }
 
-          const qty = Number(it?.quantity || 1);
-          return {
-            name: it?.name || "",
-            image: it?.image || "",
-            quantity: qty,
-            unitPrice: unit,
-            linePrice: unit * qty,
-            selectedSize: it?.selectedSize || null,
-            selectedBase: it?.selectedBase || null,
-            selectedTopping: it?.selectedTopping || null,
-            selectedAddOn: it?.selectedAddOn || null,
-            note: it?.note || "",
-          };
-        });
+      setLoading(true);
 
-        const subtotal = items.reduce(
-          (s: number, it: any) => s + Number(it.linePrice || 0),
-          0
+      try {
+        const baseCol = collection(db, "orders");
+        const q = query(
+          baseCol,
+          where("branchId", "==", user.branchId),
+          orderBy("createdAt", "desc")
         );
-        const shippingFee = Number(raw?.shippingFee ?? 15000);
-        const total = subtotal + shippingFee;
 
-        return {
-          id: docSnap.id,
-          date: createdAt.toLocaleString("vi-VN"),
-          status: raw.status || "processing",
-          receiverAddress:
-            raw.receiverAddress ||
-            "20/11, Lê Ngã, Phường Phú Trung, Quận Tân Phú, TP.HCM",
-          shippingMethod: raw.shippingMethod || "other", // ✅ dùng để show label
-          items,
-          subtotal,
-          shippingFee,
-          total,
-        };
-      });
+        unsub = onSnapshot(
+          q,
+          (snapshot) => {
+            const data = snapshot.docs.map((docSnap) => {
+              const raw: any = docSnap.data();
+              const createdAt = raw.createdAt?.toDate?.() || new Date();
 
-      setOrders(data);
-      setLoading(false);
-    });
+              const items = (raw.items || []).map((it: any) => {
+                const toppingTotal = Array.isArray(it?.selectedTopping)
+                  ? it.selectedTopping.reduce(
+                      (s: number, t: any) => s + (t.price || 0),
+                      0
+                    )
+                  : 0;
 
-    return () => unsubscribe();
-  }, []);
+                const addOnTotal = Array.isArray(it?.selectedAddOn)
+                  ? it.selectedAddOn.reduce(
+                      (s: number, a: any) => s + (a.price || 0),
+                      0
+                    )
+                  : 0;
 
-  // ✅ Cập nhật trạng thái
+                const unit =
+                  Number(it?.price) ||
+                  Number(it?.selectedSize?.price || 0) +
+                    Number(it?.selectedBase?.price || 0) +
+                    Number(toppingTotal) +
+                    Number(addOnTotal);
+
+                const qty = Number(it?.quantity || 1);
+
+                return {
+                  name: it?.name || "",
+                  image: it?.image || "",
+                  quantity: qty,
+                  unitPrice: unit,
+                  linePrice: unit * qty,
+                  selectedSize: it?.selectedSize || null,
+                  selectedBase: it?.selectedBase || null,
+                  selectedTopping: Array.isArray(it?.selectedTopping)
+                    ? it.selectedTopping
+                    : [],
+                  selectedAddOn: Array.isArray(it?.selectedAddOn)
+                    ? it.selectedAddOn
+                    : [],
+                  note: it?.note || "",
+                };
+              });
+
+              const subtotal = items.reduce(
+                (s: number, it: any) => s + Number(it.linePrice || 0),
+                0
+              );
+              const shippingFee = Number(raw?.shippingFee ?? 15000);
+              const total = subtotal + shippingFee;
+
+              return {
+                id: docSnap.id,
+                date: createdAt.toLocaleString("vi-VN"),
+                status: raw.status || "processing",
+                receiverAddress:
+                  raw.orderAddress ||
+                  raw.receiverAddress ||
+                  "Không có địa chỉ",
+                shippingMethod: raw.shippingMethod || "other",
+                items,
+                subtotal,
+                shippingFee,
+                total,
+              };
+            });
+
+            setOrders(data);
+            setLoading(false);
+          },
+          (err) => {
+            console.error("🔥 Lỗi khi listen orders:", err);
+            setLoading(false);
+          }
+        );
+      } catch (e) {
+        console.error("🔥 Lỗi khi load orders:", e);
+        setLoading(false);
+      }
+    };
+
+    run();
+
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [user]);
+
+  // ✅ Cập nhật trạng thái (restaurant chỉ đi tới shipping)
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     try {
       await updateDoc(doc(db, "orders", orderId), { status: newStatus });
@@ -117,7 +175,9 @@ const RestaurantOrderScreen: React.FC<{
     return (
       <View style={styles.loadingBox}>
         <ActivityIndicator size="large" color="#F58220" />
-        <Text style={{ marginTop: 10, color: "#555" }}>Đang tải đơn hàng...</Text>
+        <Text style={{ marginTop: 10, color: "#555" }}>
+          Đang tải đơn hàng...
+        </Text>
       </View>
     );
   }
@@ -169,12 +229,8 @@ const RestaurantOrderScreen: React.FC<{
         renderItem={({ item }) => (
           <OrderCard
             order={item}
-            onViewDetail={() =>
-              navigation.navigate("RestaurantOrderDetail", { order: item })
-            }
             onConfirm={() => handleUpdateStatus(item.id, "preparing")}
-            onDeliver={() => handleUpdateStatus(item.id, "delivering")}
-            onComplete={() => handleUpdateStatus(item.id, "completed")}
+            onDeliver={() => handleUpdateStatus(item.id, "shipping")}
             onReject={() => handleUpdateStatus(item.id, "cancelled")}
           />
         )}
@@ -194,17 +250,13 @@ export default RestaurantOrderScreen;
 /* ======================== Card hiển thị từng đơn ======================== */
 const OrderCard = ({
   order,
-  onViewDetail,
   onConfirm,
   onDeliver,
-  onComplete,
   onReject,
 }: {
   order: any;
-  onViewDetail: () => void;
   onConfirm: () => void;
   onDeliver: () => void;
-  onComplete: () => void;
   onReject: () => void;
 }) => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -215,10 +267,8 @@ const OrderCard = ({
         return "#F9A825";
       case "preparing":
         return "#E040FB";
-      case "delivering":
+      case "shipping":
         return "#2196F3";
-      case "delivered":
-        return "#00d6cf";
       case "completed":
         return "#4CAF50";
       case "cancelled":
@@ -243,13 +293,15 @@ const OrderCard = ({
     <TouchableOpacity
       style={styles.orderCardContainer}
       activeOpacity={0.85}
-      onPress={() => navigation.navigate("RestaurantOrderDetail", { order })}
+      onPress={() =>
+        navigation.navigate("RestaurantOrderDetail", { order: order })
+      }
     >
       {/* Header */}
       <View style={styles.orderHeader}>
         <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
           <View style={styles.mallBadge}>
-            <Text style={styles.mallText}>Delivery by </Text>
+            <Text style={styles.mallText}>Delivery by</Text>
           </View>
           <Text style={[styles.branchName, { marginLeft: 6, flexShrink: 1 }]}>
             {getShippingLabel(order.shippingMethod)}
@@ -279,9 +331,7 @@ const OrderCard = ({
                 item.unitPrice ??
                   item.price ??
                   (item.selectedSize?.price || 0) +
-                    (item.selectedBase?.price || 0) +
-                    (item.selectedTopping?.price || 0) +
-                    (item.selectedAddOn?.price || 0)
+                    (item.selectedBase?.price || 0)
               ).toLocaleString("vi-VN")}
               ₫
             </Text>
@@ -302,30 +352,27 @@ const OrderCard = ({
       {/* Footer hành động */}
       <View style={styles.cardFooter}>
         {order.status === "processing" && (
-          <TouchableOpacity style={styles.rejectButton} onPress={onReject}>
-            <Ionicons name="close-circle-outline" size={16} color="#fff" />
-            <Text style={styles.confirmText}>Từ chối</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity style={styles.rejectButton} onPress={onReject}>
+              <Ionicons name="close-circle-outline" size={16} color="#fff" />
+              <Text style={styles.confirmText}>Từ chối</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.confirmButton} onPress={onConfirm}>
+              <Ionicons name="checkmark-outline" size={16} color="#fff" />
+              <Text style={styles.confirmText}>Xác nhận</Text>
+            </TouchableOpacity>
+          </>
         )}
 
-        {order.status === "processing" && (
-          <TouchableOpacity style={styles.confirmButton} onPress={onConfirm}>
-            <Ionicons name="checkmark-outline" size={16} color="#fff" />
-            <Text style={styles.confirmText}>Xác nhận</Text>
-          </TouchableOpacity>
-        )}
         {order.status === "preparing" && (
           <TouchableOpacity style={styles.deliverButton} onPress={onDeliver}>
             <Ionicons name="bicycle-outline" size={16} color="#fff" />
             <Text style={styles.confirmText}>Giao hàng</Text>
           </TouchableOpacity>
         )}
-        {order.status === "delivering" && (
-          <TouchableOpacity style={styles.completeButton} onPress={onComplete}>
-            <Ionicons name="checkmark-done-outline" size={16} color="#fff" />
-            <Text style={styles.confirmText}>Hoàn thành</Text>
-          </TouchableOpacity>
-        )}
+
+        {/* shipping: không có nút Hoàn thành – khách sẽ tự bấm bên app/user */}
       </View>
     </TouchableOpacity>
   );
@@ -376,7 +423,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
-    width: "100%", // ✅ full width
+    width: "100%",
     alignSelf: "center",
   },
 
@@ -428,6 +475,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     marginTop: 10,
+    gap: 6,
   },
   rejectButton: {
     flexDirection: "row",
@@ -436,7 +484,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    marginRight: 6,
   },
   confirmButton: {
     flexDirection: "row",
@@ -454,15 +501,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8,
   },
-  completeButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#4CAF50",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+  confirmText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+    marginLeft: 4,
   },
-  confirmText: { color: "#fff", fontSize: 13, fontWeight: "600", marginLeft: 4 },
 
   loadingBox: { flex: 1, justifyContent: "center", alignItems: "center" },
 });

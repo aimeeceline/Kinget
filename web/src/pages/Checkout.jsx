@@ -4,16 +4,19 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { db } from "@shared/FireBase";
 import {
   collection,
-  onSnapshot,
   addDoc,
   serverTimestamp,
   doc,
   getDoc,
 } from "firebase/firestore";
-import { removeCartItem } from "../services/cartClient";
+import {
+  listenCart,
+  removeCartItem,
+  calcPrice as calcCartPrice,
+} from "../services/cartClient";
 import "./css/Checkout.css";
 
-// 👇 thêm 3 import này nếu bạn đã dùng react-leaflet ở chỗ khác thì khỏi
+// 👇 map + leaflet
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -30,7 +33,6 @@ function QRPopup({ open, onClose, amount, orderId }) {
           <p>Số tiền: {amount.toLocaleString("vi-VN")} đ</p>
         ) : null}
 
-        {/* bạn thay bằng ảnh QR thật của bạn */}
         <img
           src="/static/common/qr-demo.png"
           alt="QR thanh toán"
@@ -68,10 +70,48 @@ function ClickToPick({ onPick }) {
   return null;
 }
 
+// ====== build item giống APP ======
+function buildOrderItem(item, branchIdFromPage) {
+  // ưu tiên _unitPrice / price, fallback calc lại
+  const unit =
+    typeof item._unitPrice === "number"
+      ? item._unitPrice
+      : typeof item.price === "number" && item.price > 0
+      ? item.price
+      : calcCartPrice(item);
+
+  return {
+    // y chang app:
+    branchId: item.branchId || branchIdFromPage || null,
+    cartId: item.cartDocId || null, // vì listenCart trả cartDocId
+    category: item.category || "",
+    foodId: item.foodId || item.id || "",
+    image: item.image || "",
+    name: item.name || "",
+    note: item.note || "",
+    price: unit,
+    quantity: item.quantity || 1,
+    selectedAddOn: Array.isArray(item.selectedAddOn)
+      ? item.selectedAddOn
+      : item.selectedAddOn
+      ? [item.selectedAddOn]
+      : [],
+    selectedBase: item.selectedBase ?? null,
+    selectedSize: item.selectedSize ?? null,
+    selectedTopping: Array.isArray(item.selectedTopping)
+      ? item.selectedTopping
+      : item.selectedTopping
+      ? [item.selectedTopping]
+      : [],
+    signature: item.signature || "",
+  };
+}
+
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // selectedIds gửi từ Cart
   const selectedFromCart = Array.isArray(location.state?.selectedIds)
     ? location.state.selectedIds
     : [];
@@ -79,14 +119,13 @@ export default function CheckoutPage() {
 
   const userStr = localStorage.getItem("user");
   const currentUser = userStr ? JSON.parse(userStr) : null;
-  const userId = currentUser?.id;
-  const orderUserId = currentUser?.phone || currentUser?.id;
+  const userId = currentUser?.id; // ✅ đồng bộ với app: userId = user.id
 
   const [cartItems, setCartItems] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
 
-  const [shippingMethod, setShippingMethod] = useState("bike");
-  const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [shippingMethod, setShippingMethod] = useState("bike"); // UI: bike/drone
+  const [paymentMethod, setPaymentMethod] = useState("cod"); // UI: cod/bank
 
   const [address, setAddress] = useState("");
   const [receiverName, setReceiverName] = useState(
@@ -104,7 +143,7 @@ export default function CheckoutPage() {
   const [mapCenter, setMapCenter] = useState([10.775, 106.7]); // tâm map
   const [searchQuery, setSearchQuery] = useState("");
 
-  // 👇 state mới cho popup QR
+  // QR
   const [showQR, setShowQR] = useState(false);
   const [lastOrderId, setLastOrderId] = useState(null);
 
@@ -146,42 +185,46 @@ export default function CheckoutPage() {
     fetchBranch();
   }, [branchId]);
 
-  // ----- realtime cart -----
+  // ----- realtime cart (DÙNG listenCart GIỐNG CartPage) -----
   useEffect(() => {
     if (!userId) {
       navigate("/login");
       return;
     }
 
-    const colRef = collection(db, "users", userId, "cart");
-    const unsub = onSnapshot(colRef, (snap) => {
-      const data = snap.docs.map((d) => ({
-        cartId: d.id,
-        ...d.data(),
-      }));
+    const unsub = listenCart(userId, (data) => {
       setCartItems(data);
 
       if (cameFromCart) {
+        // selectedIds từ Cart là cartDocId
         const valid = selectedFromCart.filter((id) =>
-          data.some((d) => d.cartId === id)
+          data.some((d) => d.cartDocId === id)
         );
         setSelectedIds(valid);
       } else {
-        setSelectedIds(data.map((d) => d.cartId));
+        // mặc định chọn hết
+        setSelectedIds(data.map((d) => d.cartDocId));
       }
     });
 
-    return () => unsub();
+    return () => {
+      if (unsub) unsub();
+    };
   }, [userId, navigate, cameFromCart, selectedFromCart]);
 
-  // ----- tính toán -----
+  // ----- tính toán -----=
   const selectedItems = useMemo(
-    () => cartItems.filter((it) => selectedIds.includes(it.cartId)),
+    () => cartItems.filter((it) => selectedIds.includes(it.cartDocId)),
     [cartItems, selectedIds]
   );
 
   const subtotal = selectedItems.reduce((sum, it) => {
-    const unit = typeof it.price === "number" ? it.price : 0;
+    const unit =
+      typeof it._unitPrice === "number"
+        ? it._unitPrice
+        : typeof it.price === "number"
+        ? it.price
+        : calcCartPrice(it) || 0;
     const qty = typeof it.quantity === "number" ? it.quantity : 1;
     return sum + unit * qty;
   }, 0);
@@ -194,23 +237,6 @@ export default function CheckoutPage() {
       : 10000;
 
   const grandTotal = subtotal + shippingFee;
-
-  const normalizeOrderItem = (item) => ({
-    cartId: item.cartId,
-    foodId: item.foodId || item.id,
-    name: item.name,
-    image: item.image || "",
-    category: item.category || "",
-    quantity: item.quantity || 1,
-    price: item.price || 0,
-    selectedSize: item.selectedSize ?? null,
-    selectedBase: item.selectedBase ?? null,
-    selectedTopping: item.selectedTopping ?? null,
-    selectedAddOn: item.selectedAddOn ?? null,
-    note: item.note ?? null,
-    signature: item.signature || "",
-    branchId: item.branchId || null,
-  });
 
   const handlePlaceOrder = async () => {
     if (!userId) {
@@ -239,11 +265,15 @@ export default function CheckoutPage() {
     }
 
     try {
+      // map UI → DB giống app
       const shippingForDb =
         shippingMethod === "bike" ? "motorbike" : "drone";
       const paymentForDb = paymentMethod === "cod" ? "cash" : "bank";
 
-      const normalizedItems = selectedItems.map((it) => normalizeOrderItem(it));
+      // build items giống app
+      const normalizedItems = selectedItems.map((it) =>
+        buildOrderItem(it, branchId)
+      );
 
       // tọa độ giao hàng
       let lat = deliveryLat;
@@ -264,29 +294,29 @@ export default function CheckoutPage() {
 
       const deliveryObj = lat && lng ? { lat, lng } : null;
 
-      // 👇 tạo đơn
+      // 👇 ORDER ROOT: giống app
       const orderRef = await addDoc(collection(db, "orders"), {
-        userId: orderUserId,
+        branchId,
+        userId: userId, // ✅ giống app: user.id
         receiverName: receiverName.trim(),
         receiverPhone: receiverPhone.trim(),
         orderAddress: address.trim(),
-        delivery: deliveryObj,
-        branchId: branchId,
         origin: branchPos ? { ...branchPos } : null,
         currentPos: branchPos ? { ...branchPos } : null,
-        items: normalizedItems,
-        shippingMethod: shippingForDb,
-        paymentMethod: paymentForDb,
+        delivery: deliveryObj,
+        paymentMethod: paymentForDb, // "cash" | "bank"
+        shippingMethod: shippingForDb, // "motorbike" | "drone"
         shippingFee,
         subtotal,
         total: grandTotal,
         status: "processing",
         createdAt: serverTimestamp(),
+        items: normalizedItems, // ✅ y chang app
       });
 
       // xoá món trong giỏ
       await Promise.all(
-        selectedItems.map((it) => removeCartItem(userId, it.cartId))
+        selectedItems.map((it) => removeCartItem(userId, it.cartDocId))
       );
 
       const newOrderId = orderRef.id;
@@ -302,10 +332,10 @@ export default function CheckoutPage() {
           });
         }, 5000);
 
-        return; // dừng ở đây, không alert nữa
+        return;
       }
 
-      // còn lại (COD) → như cũ
+      // còn lại (COD)
       alert("Đặt hàng thành công!");
       navigate("/");
     } catch (err) {
@@ -314,75 +344,9 @@ export default function CheckoutPage() {
     }
   };
 
-  // dùng vị trí hiện tại (giữ nguyên như cũ)
-  const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      alert("Trình duyệt không hỗ trợ định vị");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        setDeliveryLat(latitude);
-        setDeliveryLng(longitude);
-
-        try {
-          const resp = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
-          const data = await resp.json();
-          if (data && data.display_name) {
-            setAddress(data.display_name);
-            localStorage.setItem("deliveryAddress", data.display_name);
-          } else {
-            const txt = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-            setAddress(txt);
-            localStorage.setItem("deliveryAddress", txt);
-          }
-        } catch (err) {
-          console.error("Reverse geocode lỗi:", err);
-          const txt = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-          setAddress(txt);
-          localStorage.setItem("deliveryAddress", txt);
-        }
-
-        setShowAddressModal(false);
-      },
-      (err) => {
-        console.error(err);
-        alert("Không lấy được vị trí");
-      }
-    );
-  };
-
-  // gọi reverse geocode mỗi khi click map
-  const handlePickOnMap = async (lat, lng) => {
-    setDeliveryLat(lat);
-    setDeliveryLng(lng);
-
-    try {
-      const resp = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-      );
-      const data = await resp.json();
-      if (data?.display_name) {
-        setAddress(data.display_name);
-        localStorage.setItem("deliveryAddress", data.display_name);
-      } else {
-        const txt = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-        setAddress(txt);
-        localStorage.setItem("deliveryAddress", txt);
-      }
-    } catch (e) {
-      const txt = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      setAddress(txt);
-      localStorage.setItem("deliveryAddress", txt);
-    }
-  };
-
   if (!userId) return null;
 
+  // ================== UI ==================
   return (
     <div className="checkout-page">
       <h1>Thanh toán</h1>
@@ -442,7 +406,7 @@ export default function CheckoutPage() {
           <p>Không có món nào được chọn.</p>
         ) : (
           selectedItems.map((it) => (
-            <div key={it.cartId} className="ck-item">
+            <div key={it.cartDocId} className="ck-item">
               <img
                 src={it.image || "https://via.placeholder.com/60?text=Food"}
                 alt={it.name}
@@ -456,19 +420,34 @@ export default function CheckoutPage() {
                       {(it.selectedSize.price || 0).toLocaleString("vi-VN")} đ)
                     </span>
                   )}
-                  {it.selectedBase && <span>Đế: {it.selectedBase.label}</span>}
-                  {it.selectedTopping && (
-                    <span>Topping: {it.selectedTopping.label}</span>
+                  {it.selectedBase && (
+                    <span>Đế: {it.selectedBase.label}</span>
                   )}
-                  {it.selectedAddOn && (
-                    <span>Thêm: {it.selectedAddOn.label}</span>
-                  )}
+                  {Array.isArray(it.selectedTopping) &&
+                    it.selectedTopping.length > 0 && (
+                      <span>
+                        Topping:{" "}
+                        {it.selectedTopping.map((t) => t.label).join(", ")}
+                      </span>
+                    )}
+                  {Array.isArray(it.selectedAddOn) &&
+                    it.selectedAddOn.length > 0 && (
+                      <span>
+                        Thêm:{" "}
+                        {it.selectedAddOn.map((a) => a.label).join(", ")}
+                      </span>
+                    )}
                   {it.note && <span>Ghi chú: {it.note}</span>}
                   {it.branchId && <span>CN: {it.branchId}</span>}
                 </div>
               </div>
               <div className="ck-item-price">
-                {(it.price || 0).toLocaleString("vi-VN")} đ
+                {(it._unitPrice ||
+                  it.price ||
+                  calcCartPrice(it) ||
+                  0
+                ).toLocaleString("vi-VN")}{" "}
+                đ
               </div>
               <div className="ck-item-qty">x{it.quantity || 1}</div>
             </div>
@@ -524,7 +503,8 @@ export default function CheckoutPage() {
         </div>
         <div
           className={
-            "ck-option " + (paymentMethod === "bank" ? "ck-option--active" : "")
+            "ck-option " +
+            (paymentMethod === "bank" ? "ck-option--active" : "")
           }
           onClick={() => setPaymentMethod("bank")}
         >
@@ -596,7 +576,6 @@ export default function CheckoutPage() {
                       const lat = parseFloat(data[0].lat);
                       const lon = parseFloat(data[0].lon);
 
-                      // cập nhật địa chỉ + marker
                       setDeliveryLat(lat);
                       setDeliveryLng(lon);
                       setAddress(data[0].display_name);
@@ -630,7 +609,6 @@ export default function CheckoutPage() {
                   attribution="&copy; OpenStreetMap"
                 />
 
-                {/* click trên map để chọn */}
                 <ClickToPick
                   onPick={async (latlng) => {
                     const { lat, lng } = latlng;

@@ -18,17 +18,6 @@ import { db } from "../../data/FireBase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { FoodOrderItem } from "../../types/food";
 
-function normalizeOrderItem(item: FoodOrderItem): FoodOrderItem {
-  return {
-    ...item,
-    selectedSize: item.selectedSize ?? null,
-    selectedBase: item.selectedBase ?? null,
-    selectedTopping: item.selectedTopping ?? [],
-    selectedAddOn: item.selectedAddOn ?? [],
-    note: item.note ?? null,
-  };
-}
-
 const CheckoutScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute();
@@ -44,8 +33,10 @@ const CheckoutScreen: React.FC = () => {
   const [receiverAddress, setReceiverAddress] = useState(
     "284 An Dương Vương, Phường 3, Quận 5, TP. Hồ Chí Minh"
   );
-  const [shippingMethod, setShippingMethod] = useState<"motorbike" | "drone">("motorbike");
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "bank">("cash");
+  const [shippingMethod, setShippingMethod] =
+    useState<"motorbike" | "drone">("motorbike");
+  const [paymentMethod, setPaymentMethod] =
+    useState<"cash" | "bank">("cash");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -54,17 +45,49 @@ const CheckoutScreen: React.FC = () => {
     });
   }, []);
 
-  // ✅ Tính tổng tiền
+  // ✅ Tính tổng tiền (giống logic cũ)
   const subtotal = selectedFoods.reduce((sum, item) => {
     const size = item.selectedSize?.price || 0;
     const base = item.selectedBase?.price || 0;
-    const topping = item.selectedTopping?.reduce((s, t) => s + (t.price || 0), 0) || 0;
-    const addOn = item.selectedAddOn?.reduce((s, a) => s + (a.price || 0), 0) || 0;
+    const topping =
+      item.selectedTopping?.reduce((s, t) => s + (t.price || 0), 0) || 0;
+    const addOn =
+      item.selectedAddOn?.reduce((s, a) => s + (a.price || 0), 0) || 0;
     return sum + (size + base + topping + addOn) * (item.quantity || 1);
   }, 0);
 
   const shippingFee = shippingMethod === "drone" ? 20000 : 10000;
   const total = subtotal + shippingFee;
+
+  // ✅ Build item giống schema WEB (B02)
+  function buildOrderItem(item: FoodOrderItem) {
+    const sizePrice = item.selectedSize?.price || 0;
+    const basePrice = item.selectedBase?.price || 0;
+    const toppingPrice =
+      item.selectedTopping?.reduce((s, t) => s + (t.price || 0), 0) || 0;
+    const addOnPrice =
+      item.selectedAddOn?.reduce((s, a) => s + (a.price || 0), 0) || 0;
+
+    const unitPrice = sizePrice + basePrice + toppingPrice + addOnPrice;
+
+    return {
+      // 👇 CẤU TRÚC Y HỆT WEB
+      branchId: currentBranch || null,
+      cartId: (item as any).firestoreId || null, // nếu có docId trong giỏ
+      category: item.category,
+      foodId: item.id, // web dùng foodId
+      image: item.image,
+      name: item.name,
+      note: item.note || "",
+      price: unitPrice,
+      quantity: item.quantity || 1,
+      selectedAddOn: item.selectedAddOn ?? [],
+      selectedBase: item.selectedBase ?? null,
+      selectedSize: item.selectedSize ?? null,
+      selectedTopping: item.selectedTopping ?? [],
+      signature: item.signature,
+    };
+  }
 
   // ✅ Tạo đơn hàng
   const handlePlaceOrder = async () => {
@@ -75,23 +98,29 @@ const CheckoutScreen: React.FC = () => {
     try {
       setLoading(true);
 
-      const normalizedCart = selectedFoods.map(normalizeOrderItem);
+      const normalizedItems = selectedFoods.map(buildOrderItem);
+
       const orderData = {
         branchId: currentBranch,
-        userId: user?.id || "guest",
+        userId: user?.id || "guest", // THỐNG NHẤT: dùng user.id
         receiverName: receiverName.trim(),
         receiverPhone: receiverPhone.trim(),
         orderAddress: receiverAddress.trim(),
+
+        // Web đang dùng origin/currentPos/delivery, app tạm để giống origin
         origin: { lat: 10.7585, lng: 106.6818 },
+        currentPos: { lat: 10.7585, lng: 106.6818 },
         delivery: { lat: 10.7832852, lng: 106.7063916 },
-        paymentMethod,
-        shippingMethod,
+
+        paymentMethod,  // "cash" | "bank"
+        shippingMethod, // "motorbike" | "drone"
         shippingFee,
         subtotal,
         total,
         status: "processing",
         createdAt: serverTimestamp(),
-        items: normalizedCart,
+
+        items: normalizedItems,
       };
 
       if (paymentMethod === "cash") {
@@ -155,17 +184,27 @@ const CheckoutScreen: React.FC = () => {
             <View style={{ flex: 1, marginLeft: 10 }}>
               <Text style={styles.foodName}>{item.name}</Text>
               <Text style={styles.foodDetail}>
-                {item.selectedSize?.label} {item.selectedBase?.label && `• ${item.selectedBase.label}`}
+                {item.selectedSize?.label}{" "}
+                {item.selectedBase?.label && `• ${item.selectedBase.label}`}
               </Text>
-              {item.note ? <Text style={styles.foodNote}>Ghi chú: {item.note}</Text> : null}
+              {item.note ? (
+                <Text style={styles.foodNote}>Ghi chú: {item.note}</Text>
+              ) : null}
               <Text style={styles.priceText}>
                 {(
                   (item.quantity || 1) *
                   ((item.selectedSize?.price || 0) +
                     (item.selectedBase?.price || 0) +
-                    (item.selectedAddOn?.reduce((s, a) => s + (a.price || 0), 0) || 0) +
-                    (item.selectedTopping?.reduce((s, t) => s + (t.price || 0), 0) || 0))
-                ).toLocaleString("vi-VN")} ₫
+                    (item.selectedAddOn?.reduce(
+                      (s, a) => s + (a.price || 0),
+                      0
+                    ) || 0) +
+                    (item.selectedTopping?.reduce(
+                      (s, t) => s + (t.price || 0),
+                      0
+                    ) || 0))
+                ).toLocaleString("vi-VN")}{" "}
+                ₫
               </Text>
             </View>
           </View>
@@ -179,7 +218,10 @@ const CheckoutScreen: React.FC = () => {
         ].map((method) => (
           <TouchableOpacity
             key={method.key}
-            style={[styles.radioBox, shippingMethod === method.key && styles.radioBoxActive]}
+            style={[
+              styles.radioBox,
+              shippingMethod === method.key && styles.radioBoxActive,
+            ]}
             onPress={() => setShippingMethod(method.key as any)}
           >
             <View style={styles.radioLeft}>
@@ -191,14 +233,21 @@ const CheckoutScreen: React.FC = () => {
               <Text
                 style={[
                   styles.radioLabel,
-                  { color: shippingMethod === method.key ? "#F58220" : "#333" },
+                  {
+                    color:
+                      shippingMethod === method.key ? "#F58220" : "#333",
+                  },
                 ]}
               >
                 {method.label}
               </Text>
             </View>
             <Ionicons
-              name={shippingMethod === method.key ? "checkmark-circle" : "ellipse-outline"}
+              name={
+                shippingMethod === method.key
+                  ? "checkmark-circle"
+                  : "ellipse-outline"
+              }
               size={22}
               color={shippingMethod === method.key ? "#F58220" : "#ccc"}
             />
@@ -213,7 +262,10 @@ const CheckoutScreen: React.FC = () => {
         ].map((method) => (
           <TouchableOpacity
             key={method.key}
-            style={[styles.radioBox, paymentMethod === method.key && styles.radioBoxActive]}
+            style={[
+              styles.radioBox,
+              paymentMethod === method.key && styles.radioBoxActive,
+            ]}
             onPress={() => setPaymentMethod(method.key as any)}
           >
             <View style={styles.radioLeft}>
@@ -225,14 +277,21 @@ const CheckoutScreen: React.FC = () => {
               <Text
                 style={[
                   styles.radioLabel,
-                  { color: paymentMethod === method.key ? "#F58220" : "#333" },
+                  {
+                    color:
+                      paymentMethod === method.key ? "#F58220" : "#333",
+                  },
                 ]}
               >
                 {method.label}
               </Text>
             </View>
             <Ionicons
-              name={paymentMethod === method.key ? "checkmark-circle" : "ellipse-outline"}
+              name={
+                paymentMethod === method.key
+                  ? "checkmark-circle"
+                  : "ellipse-outline"
+              }
               size={22}
               color={paymentMethod === method.key ? "#F58220" : "#ccc"}
             />
@@ -241,23 +300,37 @@ const CheckoutScreen: React.FC = () => {
 
         {/* 💰 Tổng thanh toán */}
         <Text style={styles.sectionTitle}>Chi tiết thanh toán</Text>
-        <View style={styles.summaryBox}>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Tổng tiền hàng</Text>
-            <Text style={styles.summaryValue}>{subtotal.toLocaleString("vi-VN")} ₫</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Phí vận chuyển</Text>
-            <Text style={styles.summaryValue}>{shippingFee.toLocaleString("vi-VN")} ₫</Text>
-          </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { fontWeight: "bold" }]}>Tổng thanh toán</Text>
-            <Text style={[styles.summaryValue, { color: "#E53935", fontWeight: "bold" }]}>
-              {total.toLocaleString("vi-VN")} ₫
-            </Text>
-          </View>
-        </View>
+<View style={styles.summaryBox}>
+  <View style={styles.summaryRow}>
+    <Text style={styles.summaryLabel}>Tổng tiền hàng</Text>
+    <Text style={styles.summaryValue}>
+      {subtotal.toLocaleString("vi-VN")} ₫
+    </Text>
+  </View>
+
+  <View style={styles.summaryRow}>
+    <Text style={styles.summaryLabel}>Phí vận chuyển</Text>
+    <Text style={styles.summaryValue}>
+      {shippingFee.toLocaleString("vi-VN")} ₫
+    </Text>
+  </View>
+
+  <View style={styles.summaryDivider} />
+
+  <View style={styles.summaryRow}>
+    <Text style={[styles.summaryLabel, { fontWeight: "bold" }]}>
+      Tổng thanh toán
+    </Text>
+    <Text
+      style={[
+        styles.summaryValue,
+        { color: "#E53935", fontWeight: "bold" },
+      ]}
+    >
+      {total.toLocaleString("vi-VN")} ₫
+    </Text>
+  </View>
+</View>
       </ScrollView>
 
       {/* ✅ Footer */}
@@ -277,9 +350,6 @@ const CheckoutScreen: React.FC = () => {
 };
 
 export default CheckoutScreen;
-
-// 💅 STYLES giữ nguyên như của bạn
-
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F6F6F6" },
@@ -317,7 +387,12 @@ const styles = StyleSheet.create({
   foodName: { fontSize: 15, fontWeight: "bold", color: "#1a1a1a" },
   foodDetail: { fontSize: 13, color: "#666", marginTop: 4 },
   foodNote: { fontSize: 13, color: "#666", marginTop: 4 },
-  priceText: { fontSize: 14, fontWeight: "bold", color: "#E53935", marginTop: 6 },
+  priceText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#E53935",
+    marginTop: 6,
+  },
   radioBox: {
     flexDirection: "row",
     justifyContent: "space-between",

@@ -86,7 +86,7 @@ const MenuManage: React.FC = () => {
     price:
       foodMatch?.price ??
       (foodMatch?.sizes?.[0]?.price ?? bf.price ?? 0), // lấy giá đúng nhất
-    isAvailable: bf.isAvailable ?? true,
+    isActive: bf.isActive ?? true,
     stock: bf.stock ?? 0,
   };
 });
@@ -119,9 +119,9 @@ const MenuManage: React.FC = () => {
 
 
     if (activeStatus === "Đang bán") {
-      base = base.filter((f) => f.isAvailable);
+      base = base.filter((f) => f.isActive);
     } else if (activeStatus === "Tạm ngưng") {
-      base = base.filter((f) => !f.isAvailable);
+      base = base.filter((f) => !f.isActive);
     }
 
     setFilteredFoods(base);
@@ -133,14 +133,14 @@ const MenuManage: React.FC = () => {
     // 🧩 Cập nhật UI ngay lập tức để mượt
     setFoods((prev) =>
       prev.map((f) =>
-        f.id === foodId ? { ...f, isAvailable: !current } : f
+        f.id === foodId ? { ...f, isActive: !current } : f
       )
     );
 
     // ⏳ Đồng bộ Firestore (nền)
     if (!user?.branchId) return;
     const foodRef = doc(db, `branches/${user.branchId}/branchFoods`, foodId);
-    await updateDoc(foodRef, { isAvailable: !current });
+    await updateDoc(foodRef, { isActive: !current });
   } catch (err) {
     console.error("⚠️ Lỗi cập nhật trạng thái bán:", err);
   }
@@ -269,12 +269,12 @@ const MenuManage: React.FC = () => {
                 <Text style={styles.name}>{item.name}</Text>
                 <Text
                   style={{
-                    color: item.isAvailable ? "#4CAF50" : "#E53935",
+                    color: item.isActive ? "#4CAF50" : "#E53935",
                     fontSize: 12,
                     marginTop: 4,
                   }}
                 >
-                  {item.isAvailable ? "Đang bán" : "Tạm ngưng"}
+                  {item.isActive ? "Đang bán" : "Tạm ngưng"}
                 </Text>
               </View>
               {/* ✅ Switch được bọc để chặn sự kiện lan */}
@@ -282,16 +282,20 @@ const MenuManage: React.FC = () => {
                 pointerEvents="box-only" // ✅ giúp tách vùng touch cho Switch
                 onStartShouldSetResponder={() => true}
                 onTouchStart={(e) => e.stopPropagation()}
-              >
-                <Switch
-                  value={item.isAvailable ?? true}
-                  onValueChange={() => toggleAvailability(item.id, item.isAvailable)}
-                  trackColor={{ false: "#ccc", true: "#F58220" }}
-                  thumbColor="#fff"
-                  style={{ transform: [{ scale: 0.9 }] }}
-                />
-              </View>
+              ></View>
 
+              {/* ✅ Switch: ngăn sự kiện lan lên TouchableOpacity */}
+              <Switch
+                value={item.isActive ?? true}
+                onValueChange={(value) => {
+                  // Ngăn chặn sự kiện lan lên onPress
+                  // (Khi user chạm vào Switch, không bị trigger navigation)
+                  toggleAvailability(item.id, item.isActive);
+                }}
+                trackColor={{ false: "#ccc", true: "#F58220" }}
+                thumbColor="#fff"
+                style={{ transform: [{ scale: 0.9 }] }}
+              />
             </TouchableOpacity>
           )}
         />

@@ -62,7 +62,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const itemsRef = collection(db, "users", user.id, "carts", selectedBranch, "items");
+    const itemsRef = collection(db, "users", user.id, "cart", selectedBranch, "items");
     console.log("📡 Listening cart for branch:", selectedBranch);
 
     const unsubscribe = onSnapshot(itemsRef, (snap) => {
@@ -99,7 +99,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     const signature = getSignature(food);
     const branchCart = cartByBranch[branchId] || [];
     const existing = branchCart.find((i) => i.signature === signature);
-    const itemsRef = collection(db, "users", user.id, "carts", branchId, "items");
+    const itemsRef = collection(db, "users", user.id, "cart", branchId, "items");
 
     const newItem = {
       id: food.id,
@@ -137,7 +137,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const removeFromCart = async (branchId: string, index: number) => {
     const item = cartByBranch[branchId]?.[index];
     if (!item || !user?.id || !item.firestoreId) return;
-    const ref = doc(db, "users", user.id, "carts", branchId, "items", item.firestoreId);
+    const ref = doc(db, "users", user.id, "cart", branchId, "items", item.firestoreId);
     await deleteDoc(ref);
   };
 
@@ -153,7 +153,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     const targetBranch = branchId || selectedBranch;
     if (!targetBranch) return;
 
-    const itemsRef = collection(db, "users", user.id, "carts", targetBranch, "items");
+    const itemsRef = collection(db, "users", user.id, "cart", targetBranch, "items");
     const docs = await getDocs(itemsRef);
     for (const d of docs.docs) await deleteDoc(d.ref);
   };
@@ -161,7 +161,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const increaseQtyInCart = async (branchId: string, index: number) => {
     const item = cartByBranch[branchId]?.[index];
     if (!item?.firestoreId || !user?.id) return;
-    const ref = doc(db, "users", user.id, "carts", branchId, "items", item.firestoreId);
+    const ref = doc(db, "users", user.id, "cart", branchId, "items", item.firestoreId);
     await setDoc(ref, { quantity: item.quantity + 1, updatedAt: serverTimestamp() }, { merge: true });
   };
 
@@ -169,7 +169,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     const item = cartByBranch[branchId]?.[index];
     if (!item?.firestoreId || !user?.id) return;
     if (item.quantity <= 1) return handleRemoveItem(branchId, index);
-    const ref = doc(db, "users", user.id, "carts", branchId, "items", item.firestoreId);
+    const ref = doc(db, "users", user.id, "cart", branchId, "items", item.firestoreId);
     await setDoc(ref, { quantity: item.quantity - 1, updatedAt: serverTimestamp() }, { merge: true });
   };
 
