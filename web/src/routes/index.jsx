@@ -27,6 +27,7 @@ import AdminUsers from "../pages/admin/User";
 import AdminMenu from "../pages/admin/Menu";
 import AdminBranch from "../pages/admin/Branch";
 import AdminDrones from "../pages/admin/Drone";
+import NewBranchPage from "../pages/admin/NewBranch";
 
 export const router = createBrowserRouter([
   // ===== USER =====
@@ -67,6 +68,7 @@ export const router = createBrowserRouter([
       {path: "users", element: <AdminUsers /> },
       {path: "branches", element: <AdminBranch /> },
       {path: "drones", element: <AdminDrones /> },
+      {path: "branches/new", element: <NewBranchPage /> }
     ],
   },
 ]);
