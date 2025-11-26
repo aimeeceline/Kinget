@@ -12,7 +12,9 @@ export default function OrderDetailPage() {
 
   const userJson = localStorage.getItem("user");
   const currentUser = userJson ? JSON.parse(userJson) : null;
-  const currentUserId = currentUser?.phone || currentUser?.id;
+
+  // ✅ Đồng bộ với Checkout + Orders: luôn dùng user.id
+  const currentUserId = currentUser?.id || null;
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,7 +37,7 @@ export default function OrderDetailPage() {
         }
         const data = { id: snap.id, ...snap.data() };
 
-        // chặn xem đơn của người khác
+        // ❗ chặn xem đơn của người khác – so theo user.id
         if (currentUserId && data.userId && data.userId !== currentUserId) {
           setForbidden(true);
           setLoading(false);
@@ -191,9 +193,16 @@ export default function OrderDetailPage() {
                 <div className="odetail-item-meta">
                   {it.selectedSize && <span>Size: {it.selectedSize.label}</span>}
                   {it.selectedBase && <span>Đế: {it.selectedBase.label}</span>}
-                  {it.selectedTopping && (
+                  {it.selectedTopping && !Array.isArray(it.selectedTopping) && (
                     <span>Topping: {it.selectedTopping.label}</span>
                   )}
+                  {Array.isArray(it.selectedTopping) &&
+                    it.selectedTopping.length > 0 && (
+                      <span>
+                        Topping:{" "}
+                        {it.selectedTopping.map((t) => t.label).join(", ")}
+                      </span>
+                    )}
                   {Array.isArray(it.selectedToppings) &&
                     it.selectedToppings.length > 0 && (
                       <span>

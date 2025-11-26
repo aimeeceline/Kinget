@@ -6,8 +6,7 @@ import AddressBranchModal from "../components/AddressBranchModal.jsx";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 
-import { db } from "@shared/FireBase";
-import { collection, onSnapshot } from "firebase/firestore";
+import { listenCart } from "../services/cartClient";
 
 export default function UserLayout() {
   const { user } = useAuthContext();
@@ -23,29 +22,18 @@ export default function UserLayout() {
     }
   }, [user]);
 
-  // nghe giỏ hàng để hiện số ở header
+  // nghe giỏ hàng (nhánh hiện tại) để hiện số ở header
   useEffect(() => {
     if (!user?.id) {
       setCartCount(0);
       return;
     }
 
-    const colRef = collection(db, "users", user.id, "cart");
-    const unsub = onSnapshot(colRef, (snap) => {
-      const currentBranchId = localStorage.getItem("selectedBranchId");
-
-      // nếu chưa chọn chi nhánh -> tính hết
-      const total = snap.docs.reduce((sum, d) => {
-        const data = d.data();
-
-        // lọc theo chi nhánh
-        if (currentBranchId && data.branchId !== currentBranchId) {
-          return sum;
-        }
-
+    const unsub = listenCart(user.id, (items) => {
+      const total = items.reduce((sum, it) => {
         const qty =
-          typeof data.quantity === "number" && data.quantity > 0
-            ? data.quantity
+          typeof it.quantity === "number" && it.quantity > 0
+            ? it.quantity
             : 1;
         return sum + qty;
       }, 0);
@@ -53,8 +41,10 @@ export default function UserLayout() {
       setCartCount(total);
     });
 
-    return () => unsub();
-  }, [user]);
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
+  }, [user?.id]);
 
   return (
     <>

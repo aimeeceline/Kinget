@@ -32,7 +32,7 @@ interface OrderItem {
   status:
     | "processing"
     | "preparing"
-    | "delivering"
+    | "shipping"
     | "delivered"
     | "completed"
     | "cancelled";
@@ -60,7 +60,7 @@ interface OrderItem {
 const statusTabs = [
   { key: "processing", label: "Chờ xác nhận" },
   { key: "preparing", label: "Đang chuẩn bị" },
-  { key: "delivering", label: "Đang giao" },
+  { key: "shipping", label: "Đang giao" },
   { key: "delivered", label: "Đã giao" },
   { key: "completed", label: "Hoàn thành" },
   { key: "cancelled", label: "Đã hủy" },
@@ -200,7 +200,7 @@ const OrderCard = ({ order, navigation }: { order: OrderItem; navigation: any })
         return "#F9A825";
       case "preparing":
         return "#db00da";
-      case "delivering":
+      case "shipping":
         return "#2196F3";
       case "delivered":
         return "#b39ddb";

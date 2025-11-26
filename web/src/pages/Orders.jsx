@@ -24,17 +24,22 @@ export default function OrdersPage() {
   // lấy user
   const userStr = localStorage.getItem("user");
   const currentUser = userStr ? JSON.parse(userStr) : null;
-  const orderUserId = currentUser?.phone || currentUser?.id;
+
+  // ✅ đồng bộ với app + Checkout: userId = currentUser.id
+  const orderUserId = currentUser?.id || null;
 
   const [activeTab, setActiveTab] = useState("processing");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!orderUserId) return;
+    if (!orderUserId) {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
 
     const colRef = collection(db, "orders");
-    // ❗ chỉ where thôi để không phải tạo index
     const q = query(colRef, where("userId", "==", orderUserId));
 
     const unsub = onSnapshot(
@@ -82,7 +87,8 @@ export default function OrdersPage() {
           <button
             key={tab.key}
             className={
-              "orders-tab " + (activeTab === tab.key ? "orders-tab--active" : "")
+              "orders-tab " +
+              (activeTab === tab.key ? "orders-tab--active" : "")
             }
             onClick={() => setActiveTab(tab.key)}
           >
@@ -137,7 +143,9 @@ export default function OrdersPage() {
                         alt={firstItem.name}
                       />
                       <div className="order-item__info">
-                        <div className="order-item__name">{firstItem.name}</div>
+                        <div className="order-item__name">
+                          {firstItem.name}
+                        </div>
                         <div className="order-item__qty">
                           x{firstItem.quantity || 1}
                         </div>
@@ -172,7 +180,9 @@ export default function OrdersPage() {
                 <div className="order-card__actions">
                   <button
                     className="order-view-btn"
-                    onClick={() => (window.location.href = `/orders/${order.id}`)}
+                    onClick={() =>
+                      (window.location.href = `/orders/${order.id}`)
+                    }
                   >
                     Xem chi tiết đơn hàng
                   </button>

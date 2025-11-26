@@ -31,7 +31,6 @@ export default function CartPage() {
     }
     const unsub = listenCart(userId, (data) => {
       setItems(data);
-      // mặc định chọn tất cả item trong giỏ
       setSelectedIds(data.map((d) => d.cartDocId));
       setLoading(false);
     });
@@ -40,13 +39,16 @@ export default function CartPage() {
     };
   }, [userId, navigate]);
 
-  // chi nhánh hiện tại
-  const currentBranchId = localStorage.getItem("selectedBranchId");
+  // chi nhánh hiện tại (nếu có)
+  const currentBranchId =
+    typeof window !== "undefined"
+      ? localStorage.getItem("selectedBranchId")
+      : null;
+
   const shownItems = currentBranchId
     ? items.filter((it) => it.branchId === currentBranchId)
     : items;
 
-  // ⭐ selectedIds dùng cho toàn giỏ, nên tạo 1 bản "selected trong chi nhánh đang xem"
   const selectedVisibleIds = selectedIds.filter((id) =>
     shownItems.some((it) => it.cartDocId === id)
   );
@@ -82,7 +84,6 @@ export default function CartPage() {
     }
   };
 
-  // tick / bỏ tick 1 món (theo toàn giỏ, nhưng click ở phần hiển thị)
   const toggleSelect = (cartDocId) => {
     setSelectedIds((prev) =>
       prev.includes(cartDocId)
@@ -91,17 +92,14 @@ export default function CartPage() {
     );
   };
 
-  // tick all (chỉ tick những món đang hiển thị)
   const toggleSelectAll = () => {
     if (selectedVisibleIds.length === shownItems.length) {
-      // bỏ tick hết món đang hiển thị
       setSelectedIds((prev) =>
         prev.filter(
           (id) => !shownItems.some((it) => it.cartDocId === id)
         )
       );
     } else {
-      // tick tất cả món đang hiển thị + giữ nguyên mấy món branch khác
       setSelectedIds((prev) => [
         ...prev,
         ...shownItems
@@ -111,7 +109,6 @@ export default function CartPage() {
     }
   };
 
-  // ⭐ tính tổng chỉ trên shownItems
   const total = shownItems.reduce((sum, it) => {
     if (!selectedIds.includes(it.cartDocId)) return sum;
     const line =
@@ -121,22 +118,49 @@ export default function CartPage() {
     return sum + line;
   }, 0);
 
-  // ⭐ tổng số lượng chỉ trên shownItems
   const totalSelectedQty = shownItems.reduce((sum, it) => {
     if (!selectedIds.includes(it.cartDocId)) return sum;
     const qty = typeof it.quantity === "number" ? it.quantity : 1;
     return sum + qty;
   }, 0);
 
-  // helper topping
+  // helper topping/addOn: hỗ trợ cả array & object
   const renderTopping = (it) => {
-    if (it.selectedTopping && typeof it.selectedTopping === "object") {
-      return <span>Topping: {it.selectedTopping.label}</span>;
+    const toppings = Array.isArray(it.selectedTopping)
+      ? it.selectedTopping
+      : it.selectedTopping
+      ? [it.selectedTopping]
+      : [];
+
+    const addOns = Array.isArray(it.selectedAddOn)
+      ? it.selectedAddOn
+      : it.selectedAddOn
+      ? [it.selectedAddOn]
+      : [];
+
+    const parts = [];
+
+    if (toppings.length > 0) {
+      parts.push(
+        `Topping: ${toppings
+          .map((t) => t.label)
+          .filter(Boolean)
+          .join(", ")}`
+      );
     }
-    if (it.selectedAddOn && typeof it.selectedAddOn === "object") {
-      return <span>Thêm: {it.selectedAddOn.label}</span>;
+
+    if (addOns.length > 0) {
+      parts.push(
+        `Thêm: ${addOns
+          .map((a) => a.label)
+          .filter(Boolean)
+          .join(", ")}`
+      );
     }
-    return null;
+
+    if (parts.length === 0) return null;
+
+    return <span>{parts.join(" | ")}</span>;
   };
 
   if (!userId) return null;
@@ -177,7 +201,9 @@ export default function CartPage() {
 
               <div className="cart-thumb">
                 <img
-                  src={it.image || "https://via.placeholder.com/80?text=Food"}
+                  src={
+                    it.image || "https://via.placeholder.com/80?text=Food"
+                  }
                   alt={it.name}
                 />
               </div>
@@ -195,15 +221,19 @@ export default function CartPage() {
                         : ""}
                     </span>
                   )}
-                  {it.selectedBase && <span>Đế: {it.selectedBase.label}</span>}
+                  {it.selectedBase && (
+                    <span>Đế: {it.selectedBase.label}</span>
+                  )}
                   {renderTopping(it)}
                   {it.note && <span>Ghi chú: {it.note}</span>}
-                  {it.branchId && <span>CN: {it.branchId}</span>}
                 </div>
               </div>
 
               <div className="cart-unit-price">
-                {(it._unitPrice || it.price || 0).toLocaleString("vi-VN")} đ
+                {(it._unitPrice || it.price || 0).toLocaleString(
+                  "vi-VN"
+                )}{" "}
+                đ
               </div>
 
               <div className="cart-qty">
@@ -248,7 +278,6 @@ export default function CartPage() {
         </div>
       )}
 
-      {/* footer */}
       <div className="cart-footer">
         <div className="cart-total-text">
           Tổng cộng: <strong>{total.toLocaleString("vi-VN")} đ</strong>
@@ -259,7 +288,6 @@ export default function CartPage() {
           onClick={() =>
             navigate("/checkout", {
               state: {
-                // ⭐ chỉ gửi những món đang hiển thị và được chọn
                 selectedIds: selectedVisibleIds,
               },
             })
@@ -269,14 +297,14 @@ export default function CartPage() {
         </button>
       </div>
 
-      {/* popup xoá */}
       {confirmOpen && (
         <div className="cart-confirm-overlay">
           <div className="cart-confirm">
             <div className="cart-confirm-icon">!</div>
             <p>
               Bạn có muốn xoá{" "}
-              <strong>{deleteTarget?.name || "món này"}</strong> khỏi giỏ hàng?
+              <strong>{deleteTarget?.name || "món này"}</strong> khỏi
+              giỏ hàng?
             </p>
             <div className="cart-confirm-actions">
               <button
