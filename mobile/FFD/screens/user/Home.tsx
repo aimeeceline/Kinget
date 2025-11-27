@@ -30,7 +30,7 @@ const HomeScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const [branches, setBranches] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
   const [branchModalVisible, setBranchModalVisible] = useState(false);
 
   const navigation = useNavigation<any>();
@@ -41,20 +41,35 @@ const HomeScreen: React.FC = () => {
 
   // 🧩 Lấy danh sách chi nhánh
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "branches"), (snapshot) => {
-      const branchList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        name: doc.data().name,
-      }));
-      setBranches(branchList);
-
-      // Nếu chưa có branch nào được chọn thì chọn mặc định
-      if (!selectedBranch && branchList.length > 0) {
-        setSelectedBranch(branchList[0].id);
-      }
+  const unsubscribe = onSnapshot(collection(db, "branches"), (snapshot) => {
+    const allBranches = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        name: data.name,
+        isActive: data.isActive ?? true, // mặc định true nếu chưa có field
+      };
     });
-    return unsubscribe;
-  }, []);
+
+    // 🔥 Chỉ lấy chi nhánh active
+    const activeBranches = allBranches.filter((b) => b.isActive === true);
+
+    setBranches(activeBranches);
+
+    // Nếu branch đang chọn không còn active hoặc chưa có thì chọn branch active đầu tiên
+    if (
+      !selectedBranch ||
+      !activeBranches.some((b) => b.id === selectedBranch)
+    ) {
+      if (activeBranches.length > 0) {
+        setSelectedBranch(activeBranches[0].id);
+      }
+    }
+  });
+
+  return unsubscribe;
+}, []);
+
 
   // 🍔 Lấy món ăn theo chi nhánh hiện tại (dựa vào branchFoods)
   useEffect(() => {
@@ -234,11 +249,13 @@ const HomeScreen: React.FC = () => {
                 key={b.id}
                 style={styles.modalItem}
                 onPress={() => {
-                  setSelectedBranch(b.id);
-                  AsyncStorage.setItem("selectedBranch", b.id);
-                  setBranchModalVisible(false);
-                  setLoading(true);
-                }}
+  if (b.id !== selectedBranch) {
+    setSelectedBranch(b.id);
+    AsyncStorage.setItem("selectedBranch", b.id);
+    setLoading(true);   // chỉ bật khi đổi chi nhánh
+  }
+  setBranchModalVisible(false);
+}}
               >
                 <Ionicons
                   name={
