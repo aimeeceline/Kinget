@@ -72,42 +72,46 @@ const HomeScreen: React.FC = () => {
 
 
   // 🍔 Lấy món ăn theo chi nhánh hiện tại (dựa vào branchFoods)
-  useEffect(() => {
-    if (!selectedBranch) return;
+ useEffect(() => {
+  if (!selectedBranch) return;
 
-    const branchFoodsRef = collection(db, `branches/${selectedBranch}/branchFoods`);
+  // RESET trước khi load dữ liệu mới
+  setFoods([]);
+  setFilteredFoods([]);
+  setLoading(true);
 
-    const unsubscribe = onSnapshot(branchFoodsRef, async (snapshot) => {
-      const branchFoods = snapshot.docs
-        .map((d) => d.data())
-        .filter((f: any) => f.isActive === true);
+  const branchFoodsRef = collection(db, `branches/${selectedBranch}/branchFoods`);
 
-      if (branchFoods.length === 0) {
-        setFoods([]);
-        setFilteredFoods([]);
-        setLoading(false);
-        return;
-      }
+  const unsubscribe = onSnapshot(branchFoodsRef, async (snapshot) => {
+    const branchFoods = snapshot.docs
+      .map((d) => d.data())
+      .filter((f: any) => f.isActive === true);
 
-      // Lấy danh sách foodId đang active
-      const foodIds = branchFoods.map((f: any) => f.foodId);
-
-      // Lấy toàn bộ món ăn trong foods
-      const foodsSnap = await getDocs(collection(db, "foods"));
-      const allFoods = foodsSnap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Food[];
-
-      // Lọc những món có foodId trùng với branchFoods
-      const visibleFoods = allFoods.filter((f) => foodIds.includes(f.id));
-      setFoods(visibleFoods);
-      setFilteredFoods(visibleFoods);
+    // Không có món
+    if (branchFoods.length === 0) {
+      setFoods([]);
+      setFilteredFoods([]);
       setLoading(false);
-    });
+      return;
+    }
 
-    return () => unsubscribe();
-  }, [selectedBranch]);
+    const foodIds = branchFoods.map((f: any) => f.foodId);
+
+    const foodsSnap = await getDocs(collection(db, "foods"));
+    const allFoods = foodsSnap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Food[];
+
+    const visibleFoods = allFoods.filter((f) => foodIds.includes(f.id));
+
+    setFoods(visibleFoods);
+    setFilteredFoods(visibleFoods);
+    setLoading(false);
+  });
+
+  return () => unsubscribe();
+}, [selectedBranch]);
 
   // 💾 Lưu branch được chọn vào AsyncStorage
   useEffect(() => {

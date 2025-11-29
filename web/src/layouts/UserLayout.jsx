@@ -13,6 +13,11 @@ export default function UserLayout() {
   const [showModal, setShowModal] = useState(false);
   const [cartCount, setCartCount] = useState(0);
 
+  // 👉 Theo dõi branch hiện tại (đọc từ localStorage)
+  const [branchId, setBranchId] = useState(
+    localStorage.getItem("selectedBranchId") || ""
+  );
+
   // bật modal nếu cần
   useEffect(() => {
     if (!user) return;
@@ -22,7 +27,20 @@ export default function UserLayout() {
     }
   }, [user]);
 
-  // nghe giỏ hàng (nhánh hiện tại) để hiện số ở header
+  // 🔔 Nghe event "branch-changed" do Header bắn ra
+  useEffect(() => {
+    const handleBranchChange = () => {
+      const newId = localStorage.getItem("selectedBranchId") || "";
+      setBranchId(newId);
+    };
+
+    window.addEventListener("branch-changed", handleBranchChange);
+    return () => {
+      window.removeEventListener("branch-changed", handleBranchChange);
+    };
+  }, []);
+
+  // 🎧 Nghe giỏ hàng (nhánh hiện tại) để hiện số ở header
   useEffect(() => {
     if (!user?.id) {
       setCartCount(0);
@@ -44,7 +62,7 @@ export default function UserLayout() {
     return () => {
       if (typeof unsub === "function") unsub();
     };
-  }, [user?.id]);
+  }, [user?.id, branchId]); // 👈 branchId đổi → re-subscribe listenCart
 
   return (
     <>

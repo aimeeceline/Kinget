@@ -72,7 +72,7 @@ export async function createBranchWithFoodsAndAccount({
   await batchFoods.commit();
 
   // 3️⃣ Tạo luôn account restaurant
-const rawNum = parseInt(branchId.substring(1), 10); // "01" → 1, "15" → 15, "101" → 101
+const rawNum = parseInt(branchId.substring(1), 10);
 
 let finalPass;
   finalPass = rawNum.toString()*111; 

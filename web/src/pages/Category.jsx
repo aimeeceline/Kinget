@@ -5,7 +5,7 @@ import ProductList from "../components/ProductList";
 import {
   getFoodsByCategory,
   getFoodsByCategoryForBranch,
-} from "../services/foodService"; // 👈 import thêm getFoodsByCategory
+} from "../services/foodService";
 
 const CAT_MAP = {
   pizza: { name: "Pizza" },
@@ -19,47 +19,64 @@ export default function Category() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // 👉 state theo dõi branchId
+  const [branchId, setBranchId] = useState(
+    localStorage.getItem("selectedBranchId") || ""
+  );
+
   if (!cat) return <div style={{ padding: 16 }}>Danh mục không tồn tại.</div>;
 
+  // ====== LẤY DỮ LIỆU MỖI KHI CATEGORY HOẶC BRANCH ĐỔI ======
   useEffect(() => {
     let stop = false;
 
     async function load() {
       setLoading(true);
 
-      // lấy user và chi nhánh (nếu có)
       const userStr = localStorage.getItem("user");
       const hasUser = !!userStr;
-      const branchId = localStorage.getItem("selectedBranchId");
 
       try {
-        // TH1: không đăng nhập -> lấy tất cả món theo category
+        // TH1: không login → lấy toàn bộ món theo category
         if (!hasUser) {
           const data = await getFoodsByCategory(cat.name);
           if (!stop) setItems(data);
           return;
         }
 
-        // TH2: có đăng nhập mà chưa chọn chi nhánh -> cũng lấy tất cả
+        // TH2: có login nhưng chưa chọn chi nhánh → lấy tất cả
         if (!branchId) {
           const data = await getFoodsByCategory(cat.name);
           if (!stop) setItems(data);
           return;
         }
 
-        // TH3: có đăng nhập + có chi nhánh -> lọc theo chi nhánh
+        // TH3: có login + có chi nhánh → lọc theo chi nhánh
         const data = await getFoodsByCategoryForBranch(branchId, cat.name);
         if (!stop) setItems(data);
+
       } finally {
-          if (!stop) setLoading(false);
+        if (!stop) setLoading(false);
       }
     }
 
     load();
-    return () => {
-      stop = true;
+    return () => { stop = true };
+  }, [slug, cat.name, branchId]); // 👈 thêm branchId
+
+
+  // ====== NGHE EVENT "branch-changed" TỪ HEADER ======
+  useEffect(() => {
+    const handleBranchChange = () => {
+      const newId = localStorage.getItem("selectedBranchId") || "";
+      setBranchId(newId); // branchId đổi → load() chạy lại
     };
-  }, [slug, cat.name]);
+
+    window.addEventListener("branch-changed", handleBranchChange);
+    return () =>
+      window.removeEventListener("branch-changed", handleBranchChange);
+  }, []);
+
 
   return (
     <section>
