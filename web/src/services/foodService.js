@@ -7,6 +7,7 @@ import {
   doc,
   query,
   where,
+  writeBatch,
 } from "firebase/firestore";
 
 /**
@@ -145,4 +146,58 @@ export const getFoodsForBranch = async (branchId) => {
     .filter(Boolean);
 
   return result;
+};
+
+export const deleteFoodWithConstraints = async (foodId) => {
+  if (!foodId) throw new Error("foodId is required");
+
+  // 1️⃣ Load tất cả orders (hoặc sau này em có thể filter theo status nếu muốn)
+  const ordersSnap = await getDocs(collection(db, "orders"));
+
+  let usedInActiveOrder = false;
+
+  ordersSnap.forEach((orderDoc) => {
+    const data = orderDoc.data();
+    const status = (data.status || "").toUpperCase();
+
+    // Đơn đã hoàn tất / huỷ thì bỏ qua
+    const isFinished =
+      status === "COMPLETED" || status === "CANCELLED";
+    if (isFinished) return;
+
+    const items = Array.isArray(data.items) ? data.items : [];
+
+    // nếu bất kỳ item nào có foodId trùng -> món đang nằm trong đơn đang xử lý
+    if (items.some((it) => it.foodId === foodId)) {
+      usedInActiveOrder = true;
+    }
+  });
+
+  if (usedInActiveOrder) {
+    throw new Error(
+      "Không thể xoá món ăn vì đang có đơn hàng chưa hoàn tất chứa món này."
+    );
+  }
+
+  // 2️⃣ Không bị ràng buộc -> xoá branchFoods ở mọi chi nhánh + xoá foods
+  const branchesSnap = await getDocs(collection(db, "branches"));
+  const batch = writeBatch(db);
+
+  branchesSnap.forEach((branchDoc) => {
+    const branchId = branchDoc.id;
+
+    const branchFoodRef = doc(
+      db,
+      "branches",
+      branchId,
+      "branchFoods",
+      foodId
+    );
+    batch.delete(branchFoodRef); // nếu không tồn tại thì Firestore bỏ qua
+  });
+
+  // xoá luôn doc trong foods
+  batch.delete(doc(db, "foods", foodId));
+
+  await batch.commit();
 };

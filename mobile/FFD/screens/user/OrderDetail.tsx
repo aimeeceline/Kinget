@@ -113,7 +113,6 @@ useEffect(() => {
     processing: "Chờ xác nhận",
     preparing: "Đang chuẩn bị",
     shipping: "Đang giao",
-    delivered: "Đã giao",
     completed: "Hoàn tất",
     cancelled: "Đã hủy",
   };
