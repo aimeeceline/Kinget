@@ -23,27 +23,53 @@ export default function CartPage() {
   const currentUser = userStr ? JSON.parse(userStr) : null;
   const userId = currentUser?.id;
 
-  // ===== realtime cart =====
+  // 👉 state theo dõi chi nhánh hiện tại
+  const [branchId, setBranchId] = useState(
+    typeof window !== "undefined"
+      ? localStorage.getItem("selectedBranchId") || ""
+      : ""
+  );
+
+  // ===== nghe event đổi chi nhánh từ Header =====
+  useEffect(() => {
+    const handleBranchChange = () => {
+      const newId =
+        typeof window !== "undefined"
+          ? localStorage.getItem("selectedBranchId") || ""
+          : "";
+      setBranchId(newId);
+      setLoading(true); // chuẩn bị load giỏ mới
+    };
+
+    window.addEventListener("branch-changed", handleBranchChange);
+    return () => {
+      window.removeEventListener("branch-changed", handleBranchChange);
+    };
+  }, []);
+
+  // ===== realtime cart (theo branch hiện tại) =====
   useEffect(() => {
     if (!userId) {
       navigate("/login");
       return;
     }
+
+    // mỗi lần branchId đổi → nghe giỏ mới
     const unsub = listenCart(userId, (data) => {
       setItems(data);
       setSelectedIds(data.map((d) => d.cartDocId));
       setLoading(false);
     });
-    return () => {
-      if (unsub) unsub();
-    };
-  }, [userId, navigate]);
 
-  // chi nhánh hiện tại (nếu có)
-  const currentBranchId =
-    typeof window !== "undefined"
-      ? localStorage.getItem("selectedBranchId")
-      : null;
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
+  }, [userId, navigate, branchId]);
+
+  // chi nhánh hiện tại
+  const currentBranchId = branchId || (typeof window !== "undefined"
+    ? localStorage.getItem("selectedBranchId")
+    : null);
 
   const shownItems = currentBranchId
     ? items.filter((it) => it.branchId === currentBranchId)
@@ -124,7 +150,7 @@ export default function CartPage() {
     return sum + qty;
   }, 0);
 
-  // helper topping/addOn: hỗ trợ cả array & object
+  // helper topping/addOn
   const renderTopping = (it) => {
     const toppings = Array.isArray(it.selectedTopping)
       ? it.selectedTopping

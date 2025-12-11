@@ -1,15 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { FaUser, FaShoppingCart, FaSearch } from "react-icons/fa";
+import { FaStore, FaChevronDown } from "react-icons/fa";
 import "./css/Header.css";
 import { useAuthContext as useAuth } from "../hooks/useAuth.jsx";
 import { db } from "@shared/FireBase";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 
 export default function Header({ cartCount = 0 }) {
   const [q, setQ] = useState("");
@@ -39,23 +35,22 @@ export default function Header({ cartCount = 0 }) {
     { to: "/category/drink", label: "Thức uống", img: "/static/cat/drink.png" },
   ];
 
-  // load branches từ Firestore (chỉ lấy isActive = true)
+  // load branches từ Firestore (chỉ isActive = true)
   useEffect(() => {
     async function loadBranches() {
       try {
-        const q = query(
+        const qBranches = query(
           collection(db, "branches"),
           where("isActive", "==", true)
         );
-
-        const snap = await getDocs(q);
+        const snap = await getDocs(qBranches);
         const list = snap.docs.map((d) => ({
           id: d.id,
           ...d.data(),
         }));
         setBranches(list);
 
-        // nếu chưa chọn chi nhánh mà có data → set chi nhánh đầu
+        // nếu chưa chọn chi nhánh mà có data → lấy chi nhánh đầu tiên
         if (!selectedBranchId && list.length > 0) {
           const firstId = list[0].id;
           setSelectedBranchId(firstId);
@@ -67,7 +62,7 @@ export default function Header({ cartCount = 0 }) {
     }
     loadBranches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // chỉ load 1 lần
+  }, []);
 
   // đóng dropdown khi click ra ngoài
   useEffect(() => {
@@ -150,7 +145,9 @@ export default function Header({ cartCount = 0 }) {
                 className="ff-branch-btn"
                 onClick={() => setOpenBranch((v) => !v)}
               >
-                {selectedBranchName}
+                <FaStore className="ff-branch-btn-icon" />
+                <span>{selectedBranchName}</span>
+                <FaChevronDown className="ff-branch-btn-chevron" />
               </button>
               <div
                 className={`ff-branch-dd ${openBranch ? "show" : ""}`}
@@ -167,11 +164,13 @@ export default function Header({ cartCount = 0 }) {
                         b.id === selectedBranchId ? "active" : ""
                       }`}
                       onClick={() => {
-                        setSelectedBranchId(b.id);
-                        localStorage.setItem("selectedBranchId", b.id);
+                        if (b.id !== selectedBranchId) {
+                          setSelectedBranchId(b.id);
+                          localStorage.setItem("selectedBranchId", b.id);
+                          // thông báo cho các trang khác biết chi nhánh đổi
+                          window.dispatchEvent(new Event("branch-changed"));
+                        }
                         setOpenBranch(false);
-                        // nếu muốn reload toàn trang để các chỗ khác nhận branch mới
-                        window.location.reload();
                       }}
                     >
                       {b.name || b.id}
@@ -196,7 +195,7 @@ export default function Header({ cartCount = 0 }) {
               </button>
             </form>
 
-            {/* --- TÀI KHOẢN --- */}
+            {/* TÀI KHOẢN */}
             <div className="ff-user" ref={userRef}>
               {!isAuthenticated ? (
                 <NavLink
@@ -236,7 +235,7 @@ export default function Header({ cartCount = 0 }) {
               )}
             </div>
 
-            {/* --- CART --- */}
+            {/* CART */}
             <Link to="/cart" className="ff-cart" aria-label="Giỏ hàng">
               <FaShoppingCart />
               {cartCount > 0 && <span className="ff-badge">{cartCount}</span>}

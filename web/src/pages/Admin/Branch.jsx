@@ -1,3 +1,4 @@
+// src/pages/Branches/AdminBranches.jsx (ví dụ)
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -11,10 +12,12 @@ import {
 } from "firebase/firestore";
 import { db } from "@shared/FireBase";
 import "../css/Admin/Branch.css";
+import { deleteBranchWithConstraints } from "../../services/branchService";
 
 export default function AdminBranches() {
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,7 +29,6 @@ export default function AdminBranches() {
           id: d.id, // B01, B02...
           ...d.data(),
         }));
-        // sort theo id cho dễ
         list.sort((a, b) => (a.id || "").localeCompare(b.id || ""));
         setBranches(list);
         setLoading(false);
@@ -48,11 +50,9 @@ export default function AdminBranches() {
         isActive: newActive,
       });
 
-      // 2) tìm tất cả user thuộc chi nhánh này và cập nhật isActive giống chi nhánh
-      // tuỳ em đặt tên field trong users mà chọn where
+      // 2) cập nhật trạng thái user thuộc chi nhánh
       const usersRef = collection(db, "users");
 
-      // có thể có 2 kiểu lưu nên mình query 2 cái
       const q1 = query(usersRef, where("branchId", "==", br.id));
       const q2 = query(usersRef, where("restaurantBranchId", "==", br.id));
 
@@ -69,7 +69,6 @@ export default function AdminBranches() {
       });
 
       snap2.forEach((u) => {
-        // tránh cập nhật trùng nếu 1 user thoả cả 2 where
         if (!snap1.docs.find((d) => d.id === u.id)) {
           updates.push(
             updateDoc(doc(db, "users", u.id), {
@@ -83,6 +82,28 @@ export default function AdminBranches() {
     } catch (e) {
       console.error(e);
       alert("Không cập nhật được trạng thái chi nhánh / tài khoản.");
+    }
+  };
+
+  const handleDeleteBranch = async (br) => {
+    if (
+      !window.confirm(
+        `Bạn chắc chắn muốn xoá chi nhánh ${br.id} - ${br.name || ""}?`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(br.id);
+
+    try {
+      await deleteBranchWithConstraints(br.id);
+      alert("Đã xoá chi nhánh + tài khoản nhà hàng liên quan.");
+    } catch (e) {
+      console.error(e);
+      alert(e.message || "Không thể xoá chi nhánh. Vui lòng thử lại sau.");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -115,7 +136,7 @@ export default function AdminBranches() {
                 <th>Địa chỉ</th>
                 <th>SĐT</th>
                 <th>Trạng thái</th>
-                <th style={{ width: 150 }}>Thao tác</th>
+                <th style={{ width: 220 }}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -155,6 +176,14 @@ export default function AdminBranches() {
                         onClick={() => toggleActive(b)}
                       >
                         {b.isActive ? "Khóa" : "Mở"}
+                      </button>
+                      <button
+                        type="button"
+                        className="ad-branch-delete"
+                        onClick={() => handleDeleteBranch(b)}
+                        disabled={deletingId === b.id}
+                      >
+                        {deletingId === b.id ? "Đang xoá..." : "Xoá"}
                       </button>
                     </div>
                   </td>

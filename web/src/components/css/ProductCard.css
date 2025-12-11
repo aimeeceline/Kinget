@@ -7,8 +7,8 @@
   padding: 14px 12px 16px;
   border-radius: 16px;
   background: #f7f4eb;             /* nền be nhẹ giống hình */
-  border: 1px solid #e9e4d8;
-  box-shadow: 0 4px 14px black;
+  border: 1px solid #faaf00;
+  box-shadow: 0 4px 14px rgb(197, 193, 193);
 }
 
 .product-card__media {

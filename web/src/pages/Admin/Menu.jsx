@@ -8,7 +8,20 @@ import {
 } from "firebase/firestore";
 import { db } from "@shared/FireBase";
 import "../css/Admin/Menu.css";
+import { deleteFoodWithConstraints } from "../../services/foodService";
+// ...
 
+const handleDeleteFood = async (food) => {
+  if (!window.confirm(`Bạn có chắc muốn xoá món "${food.name}"?`)) return;
+
+  try {
+    await deleteFoodWithConstraints(food.id);
+    alert("Đã xoá món ăn thành công.");
+  } catch (err) {
+    console.error(err);
+    alert(err.message || "Không thể xoá món này.");
+  }
+};
 const PAGE_SIZE = 5;
 
 export default function AdminFoods() {
@@ -196,6 +209,13 @@ export default function AdminFoods() {
                         >
                           {f.isActive ? "Khóa" : "Mở"}
                         </button>
+                        <button
+      type="button"
+      className="ad-delete-btn"
+      onClick={() => handleDeleteFood(f)}
+    >
+      Xóa
+    </button>
                       </div>
                     </td>
                   </tr>

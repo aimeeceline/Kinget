@@ -103,7 +103,7 @@ useEffect(() => {
   const statusColors: any = {
     processing: "#F9A825",
     preparing: "#db00ba",
-    delivering: "#2196F3",
+    shipping: "#2196F3",
     delivered: "#b39ddb",
     completed: "#4CAF50",
     cancelled: "#E53935",
@@ -112,8 +112,7 @@ useEffect(() => {
   const statusLabels: any = {
     processing: "Chờ xác nhận",
     preparing: "Đang chuẩn bị",
-    delivering: "Đang giao",
-    delivered: "Đã giao",
+    shipping: "Đang giao",
     completed: "Hoàn tất",
     cancelled: "Đã hủy",
   };

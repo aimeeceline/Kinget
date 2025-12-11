@@ -30,7 +30,7 @@ const HomeScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const [branches, setBranches] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
   const [branchModalVisible, setBranchModalVisible] = useState(false);
 
   const navigation = useNavigation<any>();
@@ -41,58 +41,77 @@ const HomeScreen: React.FC = () => {
 
   // 🧩 Lấy danh sách chi nhánh
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "branches"), (snapshot) => {
-      const branchList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        name: doc.data().name,
-      }));
-      setBranches(branchList);
-
-      // Nếu chưa có branch nào được chọn thì chọn mặc định
-      if (!selectedBranch && branchList.length > 0) {
-        setSelectedBranch(branchList[0].id);
-      }
+  const unsubscribe = onSnapshot(collection(db, "branches"), (snapshot) => {
+    const allBranches = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        name: data.name,
+        isActive: data.isActive ?? true, // mặc định true nếu chưa có field
+      };
     });
-    return unsubscribe;
-  }, []);
+
+    // 🔥 Chỉ lấy chi nhánh active
+    const activeBranches = allBranches.filter((b) => b.isActive === true);
+
+    setBranches(activeBranches);
+
+    // Nếu branch đang chọn không còn active hoặc chưa có thì chọn branch active đầu tiên
+    if (
+      !selectedBranch ||
+      !activeBranches.some((b) => b.id === selectedBranch)
+    ) {
+      if (activeBranches.length > 0) {
+        setSelectedBranch(activeBranches[0].id);
+      }
+    }
+  });
+
+  return unsubscribe;
+}, []);
+
 
   // 🍔 Lấy món ăn theo chi nhánh hiện tại (dựa vào branchFoods)
-  useEffect(() => {
-    if (!selectedBranch) return;
+ useEffect(() => {
+  if (!selectedBranch) return;
 
-    const branchFoodsRef = collection(db, `branches/${selectedBranch}/branchFoods`);
+  // RESET trước khi load dữ liệu mới
+  setFoods([]);
+  setFilteredFoods([]);
+  setLoading(true);
 
-    const unsubscribe = onSnapshot(branchFoodsRef, async (snapshot) => {
-      const branchFoods = snapshot.docs
-        .map((d) => d.data())
-        .filter((f: any) => f.isActive === true);
+  const branchFoodsRef = collection(db, `branches/${selectedBranch}/branchFoods`);
 
-      if (branchFoods.length === 0) {
-        setFoods([]);
-        setFilteredFoods([]);
-        setLoading(false);
-        return;
-      }
+  const unsubscribe = onSnapshot(branchFoodsRef, async (snapshot) => {
+    const branchFoods = snapshot.docs
+      .map((d) => d.data())
+      .filter((f: any) => f.isActive === true);
 
-      // Lấy danh sách foodId đang active
-      const foodIds = branchFoods.map((f: any) => f.foodId);
-
-      // Lấy toàn bộ món ăn trong foods
-      const foodsSnap = await getDocs(collection(db, "foods"));
-      const allFoods = foodsSnap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Food[];
-
-      // Lọc những món có foodId trùng với branchFoods
-      const visibleFoods = allFoods.filter((f) => foodIds.includes(f.id));
-      setFoods(visibleFoods);
-      setFilteredFoods(visibleFoods);
+    // Không có món
+    if (branchFoods.length === 0) {
+      setFoods([]);
+      setFilteredFoods([]);
       setLoading(false);
-    });
+      return;
+    }
 
-    return () => unsubscribe();
-  }, [selectedBranch]);
+    const foodIds = branchFoods.map((f: any) => f.foodId);
+
+    const foodsSnap = await getDocs(collection(db, "foods"));
+    const allFoods = foodsSnap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Food[];
+
+    const visibleFoods = allFoods.filter((f) => foodIds.includes(f.id));
+
+    setFoods(visibleFoods);
+    setFilteredFoods(visibleFoods);
+    setLoading(false);
+  });
+
+  return () => unsubscribe();
+}, [selectedBranch]);
 
   // 💾 Lưu branch được chọn vào AsyncStorage
   useEffect(() => {
@@ -234,11 +253,13 @@ const HomeScreen: React.FC = () => {
                 key={b.id}
                 style={styles.modalItem}
                 onPress={() => {
-                  setSelectedBranch(b.id);
-                  AsyncStorage.setItem("selectedBranch", b.id);
-                  setBranchModalVisible(false);
-                  setLoading(true);
-                }}
+  if (b.id !== selectedBranch) {
+    setSelectedBranch(b.id);
+    AsyncStorage.setItem("selectedBranch", b.id);
+    setLoading(true);   // chỉ bật khi đổi chi nhánh
+  }
+  setBranchModalVisible(false);
+}}
               >
                 <Ionicons
                   name={
