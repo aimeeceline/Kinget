@@ -13,7 +13,6 @@ import { AuthContext } from "../../context/AuthContext";
 type Props = NativeStackScreenProps<RootStackParamList, "GetStarted">;
 
 const GetStartedScreen: React.FC<Props> = ({ navigation }) => {
-  const { setGuestMode } = useContext(AuthContext);
  
   return (
     <View style={styles.container}>
@@ -39,14 +38,14 @@ const GetStartedScreen: React.FC<Props> = ({ navigation }) => {
       </TouchableOpacity>
 
       {/* Nút Bỏ qua */}
-      <TouchableOpacity style={styles.skipButton}
+      {/* <TouchableOpacity style={styles.skipButton}
                         onPress={() => {
                         setGuestMode(true);
                         navigation.replace("MainTabs"); // chuyển đến trang chính dành cho user
                         }}
  >
         <Text style={[styles.text, { color: "#fff" }]}>Bỏ qua</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </View>
   );
 };

@@ -5,8 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import UsersManage from "../screens/admin/UsersManage";
 import BranchesManage from "../screens/admin/BranchesManage";
 import DronesManage from "../screens/admin/DronesManage";
-
 import AdminAccount from "../screens/admin/AdminAccount";
+import RevenueCharts from "../screens/admin/RevenueCharts";
 
 const Tab = createBottomTabNavigator();
 
@@ -43,6 +43,9 @@ export default function AdminNavigator() {
             case "Tài khoản":
               iconName = focused ? "person" : "person-outline";
               break;
+            case "Thống kê":
+              iconName = focused ? "person" : "person-outline";
+              break;
           }
           return <Ionicons name={iconName as any} size={24} color={color} />;
         },
@@ -54,6 +57,8 @@ export default function AdminNavigator() {
       <Tab.Screen name="Chi nhánh" component={BranchesManage} />
       <Tab.Screen name="Drone" component={DronesManage} />
       <Tab.Screen name="Tài khoản" component={AdminAccount} />
+      <Tab.Screen name="Thống kê" component={RevenueCharts} />
+
     </Tab.Navigator>
   );
 }

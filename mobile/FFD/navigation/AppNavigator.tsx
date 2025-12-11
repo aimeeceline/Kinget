@@ -34,6 +34,7 @@ import UserDetail from "../screens/admin/UserDetail";
 import BranchDetail from "../screens/admin/BranchDetail";
 import DroneDetail from "../screens/admin/DroneDetail";
 import AdminAccount from "../screens/admin/AdminAccount";
+import RevenueCharts from "../screens/admin/RevenueCharts";
 
 
 
